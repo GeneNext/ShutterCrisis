@@ -479,9 +479,9 @@ function deliver(o){
   if(q<60 && S.fightToday<2 && chance(0.6)){
     S.fightToday++;
     openFight(o, (res)=>{
-      if(res==='win'){ log('吵架赢了，客人按原价买单','good'); S.rep=Math.min(5,S.rep+0.1); }
-      else if(res==='tie'){ refund=income*0.3; log('吵成平手，打了七折','info'); }
-      else{ refund=income*0.5; S.rep=Math.max(0,S.rep-0.15); log('吵输了，退款一半','bad'); }
+      if(res==='win'){ log('吵架赢了，客人按原价买单','good'); S.rep=Math.min(5,S.rep+0.1); toast('吵架赢了！客人按原价买单'); }
+      else if(res==='tie'){ refund=income*0.3; log('吵成平手，打了七折','info'); toast('吵成平手，打了七折'); }
+      else{ refund=income*0.5; S.rep=Math.max(0,S.rep-0.15); log('吵输了，退款一半','bad'); toast('吵输了，退款一半'); }
       finishDeliver(o,income,refund,tip);
     });
     return;
@@ -775,12 +775,18 @@ function openFight(o, resolve){
       else if(cd.k==='reason') res=chance(0.5)?'win':'tie';
       else if(used.has(c.weak)||chance(0.25)) res='win';
       else res=chance(0.5)?'tie':'lose';
+      closeOverlay();
       resolve(res);
     };
     cards.appendChild(b);
   }
-  $('btnConcede').onclick=()=>resolve('lose');
+  $('btnConcede').onclick=()=>{ closeOverlay(); resolve('lose'); };
   bindClose(null,true);
+}
+function closeOverlay(){
+  const ov=$('overlay');
+  ov.classList.remove('show');
+  ov.innerHTML='';
 }
 
 /* ================================================================
