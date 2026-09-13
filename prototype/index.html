@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>快门危机 · 照相馆模拟经营</title>
+<style>
+  :root{
+    --bg:#14100c; --bg2:#1c1711; --panel:#221b14; --line:#3a2f22;
+    --ink:#f2e8d8; --dim:#a5947c; --faint:#6f6150;
+    --amber:#f5a623; --amber2:#ffc46b; --green:#7ecb6a; --red:#e05555;
+    --mono:"SF Mono","Cascadia Mono",Consolas,monospace;
+    --sans:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;overflow:hidden}
+  button{font-family:inherit;cursor:pointer;border:1px solid var(--line);background:var(--bg2);color:var(--ink);
+    padding:7px 14px;border-radius:8px;transition:all .15s;font-size:13px}
+  button:hover{border-color:var(--amber);color:var(--amber2)}
+  button:disabled{opacity:.35;cursor:not-allowed;border-color:var(--line);color:var(--dim)}
+  button.primary{background:var(--amber);border-color:var(--amber);color:#231505;font-weight:700}
+  button.primary:hover{background:var(--amber2);color:#231505}
+  button.ghost{background:transparent}
+  button.danger{color:var(--red);border-color:#5a2a26}
+  /* ---------- topbar ---------- */
+  header{height:52px;display:flex;align-items:center;gap:18px;padding:0 16px;
+    background:var(--bg2);border-bottom:1px solid var(--line);position:relative;z-index:20}
+  .brand{font-weight:800;letter-spacing:2px;font-size:15px;color:var(--amber2);white-space:nowrap}
+  .brand small{display:block;font-weight:400;font-size:10px;letter-spacing:3px;color:var(--faint)}
+  .kpi{display:flex;gap:20px;margin-left:8px}
+  .kpi .kv b{display:block;font-family:var(--mono);font-size:16px;color:var(--ink)}
+  .kpi .kv span{font-size:10px;color:var(--faint);letter-spacing:1px}
+  #cashKpi b{color:var(--green)}
+  #cashKpi.neg b{color:var(--red)}
+  .spacer{flex:1}
+  .clock{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  #phaseBadge{font-size:11px;letter-spacing:2px;padding:4px 10px;border:1px solid var(--amber);color:var(--amber);border-radius:20px}
+  .speed{display:flex;gap:4px;align-items:center}
+  .speed button{width:34px;height:30px;padding:0;font-family:var(--mono);font-size:12px}
+  .speed button.on{background:var(--amber);border-color:var(--amber);color:#231505;font-weight:700}
+  /* ---------- layout ---------- */
+  main{display:flex;height:calc(100vh - 52px)}
+  #left{flex:1;min-width:0;padding:16px 18px;overflow-y:auto}
+  #right{width:300px;min-width:300px;border-left:1px solid var(--line);padding:14px;overflow-y:auto;background:var(--bg2)}
+  .sec{margin-bottom:18px}
+  .sec h3{font-size:11px;letter-spacing:2px;color:var(--faint);margin-bottom:10px;font-weight:700}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  /* ---------- decision ---------- */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg button{flex:1;min-width:90px;padding:9px 8px;font-size:12px;text-align:center;line-height:1.3}
+  .seg button .t{display:block;font-weight:600}
+  .seg button .s{display:block;font-size:10px;color:var(--faint)}
+  .seg button.on{border-color:var(--amber);background:#3a2a12;color:var(--amber2)}
+  .actrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .actrow button{flex:1;min-width:110px}
+  .hint{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.6}
+  .hint b{color:var(--amber2)}
+  /* ---------- orders ---------- */
+  .slots{display:flex;gap:5px;margin-bottom:12px}
+  .slot{flex:1;height:8px;border-radius:4px;background:#33291c}
+  .slot.free{background:#3f3527}
+  .slot.busy{background:var(--amber)}
+  .order{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:10px;
+    padding:12px 14px;margin-bottom:10px;animation:slideIn .3s ease}
+  @keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .order .row{display:flex;align-items:center;gap:10px}
+  .order .otype{font-weight:700;font-size:15px}
+  .order .tag{font-size:10px;color:var(--faint);border:1px solid var(--line);padding:2px 8px;border-radius:20px}
+  .order .price{font-family:var(--mono);color:var(--amber2)}
+  .order .meta{font-size:11px;color:var(--dim);margin-top:4px}
+  .order .ops{margin-left:auto;display:flex;gap:6px;white-space:nowrap}
+  .order.done{opacity:.55;border-left-color:var(--green)}
+  .order.done .otype{color:var(--green)}
+  .order.delivering{border-left-color:var(--amber2)}
+  .order.refused{opacity:.4;border-left-color:var(--red);text-decoration:none}
+  .empty{color:var(--faint);text-align:center;padding:26px 0;font-size:13px}
+  .divider{height:1px;background:var(--line);margin:14px 0}
+  /* ---------- right panel ---------- */
+  .statline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;padding:4px 0}
+  .statline span{color:var(--dim)}
+  .statline .plus{color:var(--green)} .statline .minus{color:var(--red)}
+  .bar{height:6px;background:#33291c;border-radius:3px;overflow:hidden;margin:3px 0 10px}
+  .bar i{display:block;height:100%;background:var(--amber);border-radius:3px;transition:width .4s}
+  .log{font-family:var(--mono);font-size:11px;line-height:1.7;max-height:260px;overflow-y:auto}
+  .log .l{display:flex;gap:6px}
+  .log .d{color:var(--faint);flex-shrink:0}
+  .log .good{color:var(--green)} .log .bad{color:var(--red)} .log .info{color:var(--dim)}
+  .staffcard{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+  .staffcard:last-child{border-bottom:none}
+  .staffcard .nm{font-size:13px}
+  .staffcard .st{font-size:11px;color:var(--dim)}
+  /* ---------- overlay / modal ---------- */
+  #overlay{position:fixed;inset:0;background:rgba(10,7,4,.78);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:100}
+  #overlay.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;width:min(480px,92vw);
+    max-height:86vh;overflow-y:auto;animation:pop .25s ease}
+  @keyframes pop{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+  .modal h2{font-size:18px;margin-bottom:6px;color:var(--amber2)}
+  .modal .sub{color:var(--dim);font-size:12px;margin-bottom:14px}
+  .modal .body{font-size:13px;line-height:1.7;color:var(--ink)}
+  .modal .body b{color:var(--amber2)}
+  .modal .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+  .report{font-family:var(--mono);font-size:13px}
+  .report .rline{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line)}
+  .report .total{font-size:15px;font-weight:700;color:var(--amber2)}
+  .report .warn{color:var(--red)}
+  /* ---------- shooting minigame ---------- */
+  #viewfinder{background:#000;border-radius:12px;overflow:hidden;position:relative;width:100%;aspect-ratio:4/3}
+  #viewfinder svg{display:block;width:100%;height:100%}
+  #gauge{margin-top:14px}
+  #gauge .track{position:relative;height:26px;background:#241c12;border-radius:6px;border:1px solid var(--line);overflow:hidden}
+  #gauge .win{position:absolute;top:0;bottom:0;background:rgba(126,203,106,.25);border:1px solid var(--green)}
+  #gauge .marker{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--red);box-shadow:0 0 8px var(--red)}
+  #gauge .lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px}
+  .shots{display:flex;gap:8px;margin-top:8px}
+  .shots .shot{flex:1;border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center;font-size:11px}
+  .shots .shot.cur{outline:2px solid var(--amber)}
+  .shots .shot .s{font-family:var(--mono);font-size:18px;color:var(--amber2)}
+  .face{font-size:30px;transition:transform .12s}
+  /* ---------- fight ---------- */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .cards button{padding:12px;font-size:13px}
+  .vs{display:flex;justify-content:space-between;align-items:center;margin:10px 0;font-size:13px}
+  .vs .p{font-size:28px}
+  /* ---------- status pulses ---------- */
+  body.danger #cashKpi b{animation:blink .8s infinite}
+  @keyframes blink{50%{color:#fff;text-shadow:0 0 10px var(--red)}}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel);
+    border:1px solid var(--amber);color:var(--amber2);padding:10px 18px;border-radius:10px;z-index:200;
+    font-size:13px;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:pop .25s ease}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">快门危机<small>PHOTO STUDIO</small></div>
+  <div class="kpi">
+    <div class="kv" id="cashKpi"><span>现金</span><b id="cashVal">10,000</b></div>
+    <div class="kv"><span>第<span id="dayVal">1</span>天</span><b id="dateVal">周一</b></div>
+    <div class="kv"><span>口碑</span><b id="repVal">2.0★</b></div>
+    <div class="kv"><span>粉丝</span><b id="fansVal">0</b></div>
+    <div class="kv"><span>技能点</span><b id="skillVal">0</b></div>
+  </div>
+  <div class="spacer"></div>
+  <div id="phaseBadge">决策中</div>
+  <div class="clock" id="clockVal">上午 08:00</div>
+  <div class="speed">
+    <button id="sp0" title="暂停">⏸</button>
+    <button id="sp1" title="1倍速">1x</button>
+    <button id="sp2" title="2倍速">2x</button>
+    <button id="sp4" title="4倍速">4x</button>
+    <button id="spSkip" title="跳到结算">⏭</button>
+  </div>
+  <button id="btnReset" class="ghost" style="font-size:11px;padding:5px 10px" title="清空存档重新开始">重开</button>
+</header>
+
+<main>
+  <div id="left">
+    <!-- 决策面板 -->
+    <section class="sec" id="decisionSec">
+      <h3>上午 · 经营决策</h3>
+      <div class="panel">
+        <div style="font-size:11px;letter-spacing:2px;color:var(--faint);margin-bottom:8px">定价策略（决定价格与客流）</div>
+        <div class="seg" id="pricingSeg"></div>
+        <div style="font-size:11px;letter-spacing:2px;color:var(--faint);margin:16px 0 8px">广告投放（今日生效）</div>
+        <div class="seg" id="adSeg"></div>
+        <div class="actrow">
+          <button id="btnOpen" class="primary" style="flex-basis:100%">开门营业<br><span style="font-size:10px;color:#231505;font-weight:400">开始今天的接待</span></button>
+          <button id="btnHire">招聘摄影师<br><span style="font-size:10px;color:var(--faint)">￥500 + 日薪200</span></button>
+          <button id="btnExpand">向右扩店<br><span style="font-size:10px;color:var(--faint)">￥3000 · 容量+2</span></button>
+          <button id="btnPost">发布线上内容<br><span style="font-size:10px;color:var(--faint)" id="postHint">今日 1/1</span></button>
+          <button id="btnRepair">维修相机<br><span style="font-size:10px;color:var(--faint)">￥300</span></button>
+        </div>
+        <div class="hint" id="decisionHint"></div>
+      </div>
+    </section>
+
+    <!-- 营业面板 -->
+    <section class="sec" id="shopSec" style="display:none">
+      <h3>营业中 · 今日订单</h3>
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--dim)">今日时段（<span id="slotsUsed">0</span>/<span id="slotsMax">8</span>）</span>
+          <button id="btnClose" class="danger">打烊结算</button>
+        </div>
+        <div class="slots" id="slotBar"></div>
+        <div id="orderList"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 右侧面板 -->
+  <div id="right">
+    <section class="sec">
+      <h3>今日日报 · 实时</h3>
+      <div class="panel" id="todayReport">
+        <div class="statline"><span>订单收入</span><b id="tIncome" class="plus">+0</b></div>
+        <div class="statline"><span>小费</span><b id="tTip" class="plus">+0</b></div>
+        <div class="statline"><span>耗材支出</span><b id="tCost" class="minus">-0</b></div>
+        <div class="statline"><span>广告费</span><b id="tAd" class="minus">-0</b></div>
+        <div class="statline"><span>固定支出</span><b id="tFixed" class="minus">-0</b></div>
+        <div class="divider"></div>
+        <div class="statline total"><span>今日净现金流</span><b id="tNet">0</b></div>
+      </div>
+    </section>
+    <section class="sec">
+      <h3>线上账号</h3>
+      <div class="panel">
+        <div class="statline"><span>粉丝</span><b id="fansR">0</b></div>
+        <div class="statline"><span>作品数</span><b id="worksR">0</b></div>
+        <div style="font-size:11px;color:var(--dim);margin-top:6px" id="onlineHint"></div>
+      </div>
+    </section>
+    <section class="sec">
+      <h3>员工</h3>
+      <div class="panel" id="staffList"></div>
+    </section>
+    <section class="sec">
+      <h3>事件记录</h3>
+      <div class="panel"><div class="log" id="logBox"></div></div>
+    </section>
+  </div>
+</main>
+
+<div id="overlay"></div>
+
+<script>
+"use strict";
+/* ================================================================
+   快门危机 · 单文件可玩原型
+   MVP：现金流 / 3订单 / 定价 / 拍摄微操 / 吵架 / 锐评 / 线上 / AI冲击 / 随机事件 / 破产
+================================================================ */
+
+/* ---------- 常量 ---------- */
+const ORDERS = {
+  id:      {name:'证件照', base:80,   slots:1, cost:15, need:0},
+  portrait:{name:'标准写真', base:300,  slots:2, cost:40, need:0},
+  wedding: {name:'婚纱',   base:1500, slots:3, cost:120, need:3},
+};
+const PRICING = {
+  low:    {name:'低价引流', mult:0.6, flow:1.5, rep: -0.05, note:'客流↑ 口碑缓降'},
+  market: {name:'市场均价', mult:1.0, flow:1.0, rep:  0,    note:'基准客流'},
+  premium:{name:'中高端',  mult:1.5, flow:0.7, rep:  0.05, note:'客流↓ 口碑缓升'},
+  luxury: {name:'高端定制', mult:2.5, flow:0.4, rep:  0.1,  note:'客流↓↓ 口碑↑'},
+};
+const ADS = {
+  none:     {name:'不投放', cost:0,   flow:0,  contentBonus:0,   note:'省成本'},
+  flyer:    {name:'社区传单', cost:50,  flow:0.15, contentBonus:0,  note:'亲民'},
+  xhs:      {name:'小红书', cost:150, flow:0.3,  contentBonus:0.6,note:'年轻女性'},
+  douyin:   {name:'抖音',  cost:300, flow:0.45, contentBonus:1.0,note:'大众高转化'},
+  magazine: {name:'本地杂志', cost:500, flow:0.1,  contentBonus:0.2,note:'高端专业'},
+};
+const WEEK = ['周一','周二','周三','周四','周五','周六','周日'];
+
+/* ---------- 状态 ---------- */
+let S = null;
+const base = {
+  day:1, cash:10000, rep:2.0, fans:0, skill:0,
+  pricing:'market', ad:'none', postedToday:false,
+  hired:0, cameraHP:100, expanded:false, aiDay:30, aiHit:false,
+  rentUp:false, negStreak:0, fightToday:0, expandedSlots:0,
+  today:{income:0, tip:0, cost:0, adCost:0, ordersDone:0},
+  slots:[], orders:[], works:[], log:[],
+  events:{netRed:0, newShop:0, cameraBroken:false, referToday:0},
+};
+function newState(){ return JSON.parse(JSON.stringify(base)); }
+S = load() || newState();
+
+/* ---------- 派生数值 ---------- */
+function fixedCost(){
+  let rent = 120 + (S.expanded?80:0) + (S.rentUp? (120+S.expanded*80)*0.1 : 0);
+  const util = 20;
+  const staff = S.hired * 200;
+  const dep = 60;
+  return {rent, util, staff, dep, total: rent+util+staff+dep};
+}
+function slotsMax(){ return 8 + (S.expanded?2:0) + S.hired*4; }
+function ad(){ return ADS[S.ad]; }
+function priceOf(type){
+  let p = ORDERS[type].base * PRICING[S.pricing].mult;
+  if(type==='id' && S.aiHit) p *= 0.5;
+  return Math.round(p);
+}
+function flowFactor(){
+  let f = PRICING[S.pricing].flow + ad().flow;
+  f *= 1 + S.fans/2500;
+  f *= 0.6 + S.rep*0.2;
+  if(S.events.netRed>0) f *= 1.5;
+  if(S.events.newShop>0) f *= 0.8;
+  return f;
+}
+function avgQuality(){ // 玩家基础拍摄水平（技能+设备）
+  let q = 55 + S.skill*2 + (S.cameraHP>=60?10: S.cameraHP>=30?0:-20);
+  return Math.min(95, q);
+}
+
+/* ---------- 工具 ---------- */
+const $=id=>document.getElementById(id);
+const fmt=n=>Math.round(n).toLocaleString('zh-CN');
+function rnd(a,b){return a+Math.random()*(b-a);}
+function chance(p){return Math.random()<p;}
+function save(){ try{localStorage.setItem('shutter_crisis',JSON.stringify(S));}catch(e){} }
+function load(){ try{const j=localStorage.getItem('shutter_crisis');return j?JSON.parse(j):null;}catch(e){return null;} }
+function toast(msg){
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;
+  document.body.appendChild(t);setTimeout(()=>{t.remove();},2200);
+}
+function log(msg,cls='info'){
+  S.log.unshift({day:S.day,msg,cls}); if(S.log.length>80)S.log.length=80;
+  renderLog();
+}
+function flashCash(){ const el=$('cashKpi'); el.classList.remove('neg'); if(S.cash<0) el.classList.add('neg'); }
+
+/* ================================================================
+   渲染
+================================================================ */
+function render(){
+  $('cashVal').textContent=fmt(S.cash);
+  $('dayVal').textContent=S.day;
+  $('dateVal').textContent=WEEK[(S.day-1)%7];
+  $('repVal').textContent=S.rep.toFixed(1)+'★';
+  $('fansVal').textContent=fmt(S.fans);
+  $('skillVal').textContent=S.skill;
+  flashCash();
+  $('fansR').textContent=fmt(S.fans);
+  $('worksR').textContent=S.works.length;
+  $('onlineHint').textContent = S.postedToday? '今日已发布 1 条内容':'今日未发内容，发布可涨粉';
+  $('postHint').textContent = '今日 '+(S.postedToday?1:0)+'/1';
+  renderDecision(); renderShop(); renderReport(); renderStaff(); renderLog();
+}
+function renderDecision(){
+  // 定价
+  const seg=$('pricingSeg'); seg.innerHTML='';
+  for(const k in PRICING){
+    const p=PRICING[k];
+    const b=document.createElement('button');
+    b.className = S.pricing===k?'on':'';
+    b.innerHTML=`<span class="t">${p.name}</span><span class="s">x${p.mult} 客流${p.flow>1?'+':''}${Math.round((p.flow-1)*100)}%</span>`;
+    b.onclick=()=>{S.pricing=k;log('定价调整为「'+p.name+'」','info');render();};
+    seg.appendChild(b);
+  }
+  // 广告
+  const as=$('adSeg'); as.innerHTML='';
+  for(const k in ADS){
+    const a=ADS[k];
+    const b=document.createElement('button');
+    b.className = S.ad===k?'on':'';
+    b.innerHTML=`<span class="t">${a.name}</span><span class="s">${a.cost? '￥'+a.cost+'/天':'—'}</span>`;
+    b.onclick=()=>{S.ad=k;render();};
+    as.appendChild(b);
+  }
+  $('btnHire').disabled = S.hired>=2 || S.cash<500;
+  $('btnHire').innerHTML = S.hired>=2? '摄影师已满' : `招聘摄影师<br><span style="font-size:10px;color:var(--faint)">￥500 + 日薪200（+4时段）</span>`;
+  $('btnExpand').disabled = S.expanded || S.cash<3000;
+  $('btnExpand').textContent = S.expanded? '已扩店' : '向右扩店 ￥3000（+2时段）';
+  $('btnPost').disabled = S.postedToday;
+  $('btnRepair').disabled = S.cameraHP===100;
+  $('btnRepair').textContent = S.cameraHP===100? '相机正常' : '维修相机 ￥300';
+  const rnds=['传单更适合亲民','高端客更吃杂志广告','抖音转化高但贵','小红书适合写真客群'];
+  $('decisionHint').innerHTML = `今日预估订单：<b>${Math.max(1,Math.round(2.2*flowFactor()))}</b> 单 · ${ad().note} · ${PRICING[S.pricing].note}。`;
+}
+function renderShop(){
+  const slots=slotsMax();
+  const used = S.slots.filter(s=>s==='busy').length;
+  $('slotsUsed').textContent=used;
+  $('slotsMax').textContent=slots;
+  $('slotBar').innerHTML = S.slots.map(s=>`<div class="slot ${s==='busy'?'busy':'free'}"></div>`).join('') +
+    Array.from({length:Math.max(0,slots-S.slots.length)}).map(()=>`<div class="slot free"></div>`).join('');
+  const list=$('orderList');
+  const pending=S.orders.filter(o=>o.status!=='refused'&&o.status!=='done');
+  if(!S.orders.length || !pending.length && S.orders.every(o=>o.status==='done')){
+    list.innerHTML='<div class="empty">'+(S.orders.length? '今日订单已全部处理，可打烊结算':'等待客人到店…')+'</div>';
+    return;
+  }
+  list.innerHTML='';
+  for(const o of S.orders){
+    const d=ORDERS[o.type];
+    const el=document.createElement('div');
+    el.className='order'+(o.status==='done'?' done':o.status==='refused'?' refused':'');
+    let ops='';
+    if(o.status==='wait'){
+      if(o.arrived) ops=`<button class="primary" data-a="take">接单</button><button data-a="refuse">拒绝</button>`;
+      else ops=`<span style="color:var(--faint);font-size:12px">客人未到…</span>`;
+    }else if(o.status==='booked'){
+      ops=`<button class="primary" data-a="shoot">拍摄</button><button data-a="auto">自动拍</button>`;
+    }else if(o.status==='shot'){
+      ops=`<button class="primary" data-a="deliver">交付</button>`;
+    }else if(o.status==='done'){
+      ops=`<span style="color:var(--green);font-size:12px">✓ ${o.quality<60?'吵架险胜':'满意交付'}</span>`;
+    }else{
+      ops=`<span style="color:var(--red);font-size:12px">已拒</span>`;
+    }
+    el.innerHTML=`<div class="row">
+      <span class="otype">${d.name}</span>
+      <span class="tag">${'█'.repeat(d.slots)}${'░'.repeat(d.slots)} ${d.slots}时段</span>
+      <span class="price">￥${fmt(priceOf(o.type))}</span>
+      ${o.quality!==undefined?`<span class="tag" style="color:${o.quality>=70?'var(--green)':o.quality>=60?'var(--amber2)':'var(--red)'}">画质${Math.round(o.quality)}</span>`:''}
+      <span class="ops">${ops}</span>
+    </div>
+    <div class="meta">${o.note||''}</div>`;
+    list.appendChild(el);
+    const ba=el.querySelectorAll('button');
+    ba.forEach(b=>b.addEventListener('click',()=>act(o,b.dataset.a)));
+  }
+}
+function renderReport(){
+  $('tIncome').textContent='+'+fmt(S.today.income);
+  $('tTip').textContent='+'+fmt(S.today.tip);
+  $('tCost').textContent='-'+fmt(S.today.cost);
+  $('tAd').textContent='-'+fmt(S.today.adCost);
+  const f=fixedCost();
+  $('tFixed').textContent='-'+fmt(f.total);
+  const net=S.today.income+S.today.tip-S.today.cost-S.today.adCost-f.total;
+  const el=$('tNet'); el.textContent=(net>=0?'+':'')+fmt(net);
+  el.className=net>=0?'plus':'minus';
+}
+function renderStaff(){
+  const list=$('staffList');
+  list.innerHTML=`<div class="staffcard"><div><div class="nm">👤 店长（你）</div>
+    <div class="st">亲自拍摄 · 无工资</div></div><span class="price" style="font-family:var(--mono)">-</span></div>`;
+  for(let i=0;i<S.hired;i++){
+    list.insertAdjacentHTML('beforeend',`<div class="staffcard"><div><div class="nm">📷 摄影师 ${i+1}</div>
+      <div class="st">技能 ${(60+S.skill*1.5+i*5)|0} · 自动出片</div></div>
+      <span class="price" style="font-family:var(--mono);color:var(--red)">-200/日</span></div>`);
+  }
+  if(S.hired===0){
+    list.insertAdjacentHTML('beforeend',`<div style="font-size:11px;color:var(--faint);padding-top:8px">
+      建议招聘 1 名摄影师：多 4 个时段，可自动处理简单订单。</div>`);
+  }
+}
+function renderLog(){
+  $('logBox').innerHTML = S.log.slice(0,40).map(l=>
+    `<div class="l"><span class="d">D${l.day}</span><span class="${l.cls}">${l.msg}</span></div>`).join('');
+}
+
+/* ================================================================
+   经营动作
+================================================================ */
+function act(o, a){
+  if(a==='take'){
+    const need=ORDERS[o.type].slots;
+    if(S.slots.length+need>slotsMax()){ toast('时段不足，无法接单！'); return; }
+    for(let i=0;i<need;i++) S.slots.push('busy');
+    o.status='booked';
+    o.note='已接单 · 等待拍摄';
+    log(`接单：${ORDERS[o.type].name}（￥${fmt(priceOf(o.type))}）`,'info');
+    save(); render();
+  }else if(a==='refuse'){
+    o.status='refused';
+    o.note='客人被拒绝，不满离开';
+    log('拒绝了客人，口碑微降','bad');
+    S.rep=Math.max(0,S.rep-0.05);
+    save(); render();
+  }else if(a==='shoot'){
+    openShooting(o);
+  }else if(a==='auto'){
+    const q=avgQuality()+rnd(-15,15);
+    finishShot(o,q,true);
+  }else if(a==='deliver'){
+    deliver(o);
+  }
+}
+function finishShot(o,q,auto){
+  o.status='shot'; o.quality=q; o.note='已拍摄'+(auto?'（自动）':'')+' · 等待交付';
+  if(q>=60) S.works.push({day:S.day,type:o.type,quality:q});
+  log(`${ORDERS[o.type].name} 拍完，画质 ${q|0}${auto?'（自动）':''}`,'info');
+  render();
+}
+function deliver(o){
+  const q=o.quality;
+  let income=priceOf(o.type), refund=0, tip=0;
+  // 低画质触发客诉 → 吵架
+  if(q<60 && S.fightToday<2 && chance(0.6)){
+    S.fightToday++;
+    openFight(o, (res)=>{
+      if(res==='win'){ log('吵架赢了，客人按原价买单','good'); S.rep=Math.min(5,S.rep+0.1); }
+      else if(res==='tie'){ refund=income*0.3; log('吵成平手，打了七折','info'); }
+      else{ refund=income*0.5; S.rep=Math.max(0,S.rep-0.15); log('吵输了，退款一半','bad'); }
+      finishDeliver(o,income,refund,tip);
+    });
+    return;
+  }
+  if(q>=85){ tip=income*0.1; log('客人很满意，给了小费！','good'); }
+  else if(q>=70){ tip=income*0.05; S.rep=Math.min(5,S.rep+0.05); }
+  else { S.rep=Math.max(0,S.rep-0.05); }
+  finishDeliver(o,income,refund,tip);
+}
+function finishDeliver(o,income,refund,tip){
+  const gain=Math.round(income-refund);
+  S.today.income+=gain; S.today.tip+=tip;
+  S.today.cost+=ORDERS[o.type].cost; S.today.ordersDone++;
+  o.status='done';
+  o.note=`实收￥${fmt(gain)}${tip?` + 小费￥${fmt(tip)}`:''}`;
+  log(`交付${ORDERS[o.type].name}：+￥${fmt(gain)}${tip?' +小费':''}`,'good');
+  if(S.events.referToday>0){ S.events.referToday--; }
+  save(); render();
+}
+
+/* ================================================================
+   时间系统
+================================================================ */
+let speed=1, phase='decision', dayClock=0, arrivalIv=null;
+function setPhase(p){
+  phase=p;
+  $('phaseBadge').textContent = p==='decision'?'决策中':p==='shop'?'营业中':'结算';
+  $('decisionSec').style.display = p==='decision'?'':'none';
+  $('shopSec').style.display = p==='shop'?'':'none';
+  stopArrivals();
+  if(p==='shop'){ dayClock=0; startArrivals(); }
+  renderClock();
+}
+function setSpeed(s){
+  speed=s;
+  document.querySelectorAll('.speed button').forEach(b=>b.classList.remove('on'));
+  if(s>0) $(`sp${s}`).classList.add('on');
+  if(phase==='shop'){ stopArrivals(); startArrivals(); }
+  renderClock();
+}
+let acc=0;
+function startArrivals(){
+  stopArrivals();
+  acc=0;
+  arrivalIv=setInterval(()=>{
+    acc+=0.5*speed;
+    if(acc>=3){
+      acc-=3;
+      for(const o of S.orders){
+        if(o.status==='wait' && !o.arrived){ o.arrived=true; o.note='客人到店 · 请接单'; renderShop(); break; }
+      }
+    }
+  },500);
+}
+function stopArrivals(){ if(arrivalIv){clearInterval(arrivalIv);arrivalIv=null;} }
+function renderClock(){
+  const minutes = phase==='shop' ? Math.min(720, dayClock*60) : 0;
+  const h=Math.floor(8+minutes/60), m=minutes%60;
+  const ampm=h<12?'上午':'下午';
+  $('clockVal').textContent=`${ampm} ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+
+/* ---------- 一天流程 ---------- */
+function startDay(){
+  // 过期事件
+  S.events.netRed=Math.max(0,S.events.netRed-1);
+  S.events.newShop=Math.max(0,S.events.newShop-1);
+  S.today={income:0,tip:0,cost:0,adCost:0,ordersDone:0};
+  S.slots=[]; S.orders=[]; S.fightToday=0; S.postedToday=false;
+  if(S.events.cameraBroken && S.cameraHP===100) S.events.cameraBroken=false;
+  // 生成订单
+  genOrders();
+  setPhase('shop');
+  save();
+  render();
+}
+function genOrders(){
+  let n=Math.max(1,Math.round(2.2*flowFactor()+rnd(-0.5,0.5)));
+  if(S.events.referToday>0) n+=2;
+  for(let i=0;i<n;i++){
+    let r=Math.random();
+    let type = r<0.5?'id': r<0.85?'portrait':'wedding';
+    if(type==='wedding' && S.rep<3) type='portrait';
+    const arrival=1+i*0.9; // 游戏钟 到店时间
+    S.orders.push({id:i,type,status:'wait',arrived:false,note:`预计${arrival<3.5?'上午':'下午'}到店`});
+  }
+  log(`第 ${S.day} 天开门营业，今日预计 ${n} 单`,'info');
+}
+function closeDay(){
+  // 未处理订单流失
+  let lost=0;
+  for(const o of S.orders){
+    if(o.status==='wait'||o.status==='booked'||o.status==='shot'){
+      lost++;
+      o.status='refused';
+    }
+  }
+  if(lost>0) log(`${lost} 个订单因未交付流失`,'bad');
+  const f=fixedCost();
+  const adC=ad().cost;
+  S.today.adCost=adC;
+  const income=S.today.income+S.today.tip;
+  const variable=S.today.cost+adC;
+  const fixed=f.total;
+  const net=income-variable-fixed;
+  S.cash+=net;
+  // 口碑随定价漂移
+  S.rep=Math.max(0,Math.min(5,S.rep+PRICING[S.pricing].rep));
+  if(S.hired>0){ /* 员工出错判定 */
+    if(chance(0.12)){ log('员工失误：拍废一单，赔偿 80','bad'); S.cash-=80; }
+  }
+  S.negStreak = net<0 ? S.negStreak+1 : 0;
+  S.skill+=S.today.ordersDone*0.4;
+  save();
+  showReport(f,income,variable,fixed,net,lost,()=>{
+    if(S.day>=S.aiDay && !S.aiHit){
+      S.aiHit=true;
+      openModal('AI 冲击', `
+        <div class="body">AI 照相馆开进了你家门口。<br><br>
+        它们证件照只要 <b>半价</b>、出片只要 <b>3 秒</b>。<br><br>
+        证件照利润已永久减半（其它单子不受影响）。<br><br>
+        当 AI 只会拍证件照时，真正的摄影师还能靠体验、修图、故事活下去。</div>
+        <div class="foot"><button class="primary" data-close>我知道了</button></div>`);
+      log('【事件】AI 冲击：证件照利润减半（永久）','bad');
+    }
+    nextDay();
+  });
+}
+function nextDay(){
+  S.day++;
+  if(S.negStreak>=7){
+    gameOver('破产');
+    return;
+  }
+  setPhase('decision');
+  maybeRandomEvent();
+  save(); render();
+}
+function showReport(f,income,variable,fixed,net,lost,onDone){
+  const d=WEEK[(S.day-1)%7];
+  openModal(`日报表 · 第 ${S.day} 天（${d}）`,`
+    <div class="body report">
+      <div class="rline"><span>收入（含小费）</span><b class="plus">+${fmt(income)}</b></div>
+      <div class="rline"><span>固定支出</span><b class="minus">-${fmt(fixed)}<br><span style="font-size:10px;color:var(--faint)">房租${fmt(f.rent)} · 物业20 · 工资${fmt(f.staff)} · 折旧${fmt(f.dep)}</span></b></div>
+      <div class="rline"><span>变动支出（耗材+广告）</span><b class="minus">-${fmt(variable)}</b></div>
+      <div class="rline total"><span>净现金流</span><b class="${net>=0?'plus':'warn'}">${net>=0?'+':''}${fmt(net)}</b></div>
+      <div class="rline"><span>现金余额</span><b>${fmt(S.cash)}</b></div>
+      ${lost?`<div class="rline"><span>流失订单</span><b class="warn">${lost}</b></div>`:''}
+      ${net<0?`<div style="color:var(--red);font-size:12px;margin-top:8px">连续 ${S.negStreak}/7 天亏损 —— 若持续 7 天将破产</div>`:`<div style="color:var(--green);font-size:12px;margin-top:8px">今日现金流为正，经营健康</div>`}
+    </div>
+    <div class="foot"><button class="primary" data-close>明天继续</button></div>`,onDone);
+}
+
+/* ================================================================
+   拍摄微操（构图 + 快门时机）
+================================================================ */
+function openShooting(o){
+  const target=75+S.skill*0.6+rnd(-8,8);
+  const subject=rnd(0,1)>0.5?'👰':'👤';
+  const shots=3; let cur=0; let scores=[];
+  const winW=20, winC=rnd(25,75);
+  let pos=0, dir=1, running=true, raf=null;
+  $('overlay').innerHTML=`
+  <div class="modal" style="width:min(560px,94vw)">
+    <h2>拍摄 · ${ORDERS[o.type].name}</h2>
+    <div class="sub">取景框内调整构图，等客人笑容到峰值时按下快门（空格/点击）。共 ${shots} 张，取最好成绩。</div>
+    <div id="viewfinder"><svg viewBox="0 0 400 300">
+      <rect x="0" y="0" width="400" height="300" fill="#0a0a0a"/>
+      <line x1="133" y1="0" x2="133" y2="300" stroke="#fff" stroke-opacity=".15"/>
+      <line x1="266" y1="0" x2="266" y2="300" stroke="#fff" stroke-opacity=".15"/>
+      <line x1="0" y1="100" x2="400" y2="100" stroke="#fff" stroke-opacity=".15"/>
+      <line x1="0" y1="200" x2="400" y2="200" stroke="#fff" stroke-opacity=".15"/>
+      <text x="200" y="165" font-size="64" text-anchor="middle" id="subj">${subject}</text>
+      <rect x="0" y="0" width="400" height="300" fill="none" stroke="#f5a623" stroke-opacity=".4"/>
+    </svg></div>
+    <div id="gauge">
+      <div class="track">
+        <div class="win" id="gw" style="left:${winC}%;width:${winW}%"></div>
+        <div class="marker" id="gm"></div>
+      </div>
+      <div class="lbl"><span>笑容低谷</span><span id="gf" style="color:var(--amber2)">笑容峰值←</span><span>过曝</span></div>
+    </div>
+    <div class="shots" id="shots"></div>
+    <div style="text-align:right;margin-top:10px"><button class="primary" id="btnShot">📸 按下快门（空格）</button></div>
+  </div>`;
+  $('overlay').classList.add('show');
+  const gm=$('gm'), gw=$('gw');
+  const btn=$('btnShot');
+  function draw(){
+    if(!running) return;
+    pos+=2.2*dir;
+    if(pos>100){pos=100;dir=-1;} if(pos<0){pos=0;dir=1;}
+    gm.style.left=pos+'%';
+    raf=requestAnimationFrame(draw);
+  }
+  raf=requestAnimationFrame(draw);
+  const key=(e)=>{ if(e.code==='Space'){ e.preventDefault(); fire(); } };
+  window.addEventListener('keydown',key);
+  function fire(){
+    if(!running) return;
+    running=false; cancelAnimationFrame(raf);
+    const wL=winC-winW/2, wR=winC+winW/2;
+    let dist = pos<wL?wL-pos : pos>wR?pos-wR : 0;
+    let q;
+    if(dist<=winW/2){
+      q=100 - (dist/(winW/2))*40 + rnd(-5,5);
+    }else{
+      q=Math.max(10, 60 - dist*1.2 + rnd(-5,5));
+    }
+    q=Math.max(5,Math.min(100,q));
+    if(S.cameraHP<60) q-=12; // 相机状态差
+    q=Math.max(5,q);
+    scores.push(q);
+    const el=$('shots');
+    const cells=el.children;
+    const c=document.createElement('div');
+    c.className='shot'; c.innerHTML=`<span class="s">${q<60?'😖':q<80?'🙂':'😍'}</span><div>${q|0}分</div>`;
+    el.appendChild(c);
+    cur++;
+    if(cur<shots){
+      running=true;
+      pos=0; dir=1;
+      const subj=$('subj');
+      subj.textContent = q>=80? '😁' : q>=60? '🙂':'😐';
+      gm.style.left='0%';
+      raf=requestAnimationFrame(draw);
+      $('gf').textContent='再来一张 →';
+    }else{
+      const best=Math.max(...scores);
+      const name=ORDERS[o.type].name;
+      $('gf').textContent='完成';
+      btn.disabled=true; btn.textContent='拍摄完成';
+      const subjectEl=$('subj');
+      subjectEl.textContent = best>=80?'😁':best>=60?'🙂':'😩';
+      setTimeout(()=>{
+        window.removeEventListener('keydown',key);
+        $('overlay').innerHTML=`
+        <div class="modal">
+          <h2>选片</h2>
+          <div class="sub">${name} · 三张照片中最好的：</div>
+          <div class="body" style="text-align:center;font-size:40px">${best>=80?'😁':best>=60?'🙂':'😩'}</div>
+          <div class="body" style="text-align:center">
+            <b style="font-size:26px;font-family:var(--mono);color:${best>=70?'var(--green)':'var(--red)'}">${best|0} 分</b><br><br>
+            ${best>=85?'客人很满意，预计有小费。':best>=70?'表现不错。':best>=60?'及格，勉强交付。':'画质太差，可能要客诉……'}
+          </div>
+          <div class="foot"><button class="primary" data-close>交付</button></div>
+        </div>`;
+        bindClose(()=>{ finishShot(o,best,false); });
+      },600);
+    }
+  }
+  btn.onclick=fire;
+  bindClose(null,true);
+}
+
+/* ================================================================
+   吵架系统
+================================================================ */
+const CUSTOMERS={
+  rough:{name:'蛮横型', emoji:'😤', weak:'fact', text:'“照片把我拍成这样？！必须重拍！”'},
+  sharp:{name:'精明型', emoji:'🧐', weak:'bluff', text:'“退款，不然我发小红书曝光你。”'},
+  emo:  {name:'情绪型', emoji:'😭', weak:'emotion', text:'“呜呜……你们一点诚意都没有吗？”'},
+};
+const CARDS=[
+  {k:'fact', name:'讲事实', desc:'列出合同和参数'},
+  {k:'reason', name:'讲道理', desc:'讲行业标准'},
+  {k:'emotion', name:'打感情', desc:'讲自己的难处'},
+  {k:'bluff', name:'耍无赖', desc:'比谁更横'},
+];
+function openFight(o, resolve){
+  const c=CUSTOMERS[['rough','sharp','emo'][Math.floor(rnd(0,3))]];
+  let used=new Set();
+  $('overlay').innerHTML=`
+  <div class="modal">
+    <h2>客诉 · 吵架</h2>
+    <div class="sub">顾客类型：<b>${c.name}</b> ${c.emoji}</div>
+    <div class="vs"><span style="color:var(--faint)">${c.emoji} ${c.text}</span></div>
+    <div style="font-size:11px;color:var(--faint);margin:6px 0 10px">选择你的回应（最多 2 次机会）</div>
+    <div class="cards" id="cards"></div>
+    <div class="foot"><button class="ghost" id="btnConcede">认怂（退一半款）</button></div>
+  </div>`;
+  $('overlay').classList.add('show');
+  const cards=$('cards');
+  for(const cd of CARDS){
+    const b=document.createElement('button');
+    b.innerHTML=`<b>${cd.name}</b><br><span style="font-size:10px;color:var(--faint)">${cd.desc}</span>`;
+    b.onclick=()=>{
+      used.add(cd.k);
+      let res;
+      if(cd.k===c.weak) res='win';
+      else if(cd.k==='reason') res=chance(0.5)?'win':'tie';
+      else if(used.has(c.weak)||chance(0.25)) res='win';
+      else res=chance(0.5)?'tie':'lose';
+      resolve(res);
+    };
+    cards.appendChild(b);
+  }
+  $('btnConcede').onclick=()=>resolve('lose');
+  bindClose(null,true);
+}
+
+/* ================================================================
+   锐评（每周三晚）
+================================================================ */
+function critique(){
+  if(WEEK[(S.day-1)%7]!=='周三') return;
+  let w=null, bestQ=-1;
+  for(const x of S.works){ if(x.quality>bestQ){bestQ=x.quality;w=x;} }
+  const critics=[
+    {name:'毒舌老法师', line:q=>q>=85?'构图还行，但机位是老法师玩剩下的。':q>=70?'白瞎了这卷菲林。':'快门谁按的？狗吗？'},
+    {name:'抽象艺术人', line:q=>q>=85?'你在拍摄光的缺席。':q>=70?'很有氛围感……虽然我没看懂。':'这也许是一种解构。'},
+    {name:'沙雕网友', line:q=>q>=85?'家人们冲！这波是神图！':q>=70?'还不错，就是有点像证件照。':'笑得我满地找头。'},
+    {name:'温柔鼓励型', line:q=>q>=85?'太美了，光影和情绪都恰到好处！':q>=70?'很用心了，继续加油！':'进步空间很大，别灰心～'},
+    {name:'神秘AI评审', line:q=>q>=85?'ASSESSMENT: 9.2/10 · composition COHERENT':q>=70?'ASSESSMENT: 6.8/10 · acceptable':'ASSESSMENT: 2.1/10 · NOISE DETECTED'},
+  ];
+  const c=critics[Math.floor(rnd(0,critics.length))];
+  let tier;
+  if(!w){ tier='none'; }
+  else{
+    const r=Math.random();
+    const boost=Math.max(0,(w.quality-70)/100);
+    if(r<0.08+boost*0.15) tier='封神';
+    else if(r<0.45) tier='好评';
+    else if(r<0.7) tier='有梗';
+    else if(r<0.85) tier='毒舌';
+    else tier='无人问津';
+  }
+  const tierEff={
+    '封神':{fans:300,rep:0.2,skill:1,txt:'锐评师封神了！粉丝暴涨，口碑大涨'},
+    '好评':{fans:100,rep:0.1,skill:0,txt:'获得好评，口碑微升'},
+    '有梗':{fans:150,rep:-0.05,skill:2,txt:'成了梗图！粉丝涨但口碑微降'},
+    '毒舌':{fans:60,rep:-0.1,skill:2,txt:'被毒舌，口碑受损但学到技巧'},
+    '无人问津':{fans:0,rep:0,skill:0,txt:'石沉大海'},
+    'none':{fans:0,rep:0,skill:0,txt:'没有可投稿的作品，本周跳过'},
+  };
+  const e=tierEff[tier];
+  S.fans+=e.fans; S.rep=Math.max(0,Math.min(5,S.rep+e.rep)); S.skill+=e.skill;
+  log(`【锐评】${tier}：${e.txt}`,'info');
+  const wLine=w?`<div style="margin:6px 0">作品：${ORDERS[w.type].name} · 画质 ${w.quality|0}</div>`:'';
+  openModal(`锐评 · 周三晚`,`
+    <div class="body">
+      <div style="font-size:12px;color:var(--faint)">今晚投稿被 <b>${c.name}</b> 点评：</div>
+      ${wLine}
+      <div style="font-style:italic;margin:10px 0;padding:10px;background:var(--bg2);border-radius:8px">${w?c.line(w.quality):'——'}</div>
+      <div class="statline"><span>结果</span><b style="color:var(--amber2)">${tier}</b></div>
+      <div class="statline"><span>粉丝</span><b class="${e.fans>0?'plus':'info'}">${e.fans>0?'+':''}${fmt(e.fans)}</b></div>
+      <div class="statline"><span>口碑</span><b class="${e.rep>=0?'plus':'minus'}">${e.rep>0?'+':''}${e.rep}</b></div>
+      ${e.skill?`<div class="statline"><span>技能点</span><b class="plus">+${e.skill}</b></div>`:''}
+    </div>
+    <div class="foot"><button class="primary" data-close>继续营业</button></div>`);
+}
+
+/* ================================================================
+   随机事件（5 个 + AI）
+================================================================ */
+function maybeRandomEvent(){
+  // AI 冲击已单独在结算后触发
+  if(!chance(0.35)) { critique(); return; }
+  const pool=[];
+  if(S.events.netRed<=0) pool.push('netRed');
+  pool.push('newShop');
+  if(!S.events.cameraBroken) pool.push('camera');
+  pool.push('refer');
+  if(!S.rentUp) pool.push('rentUp');
+  const e=pool[Math.floor(rnd(0,pool.length))];
+  switch(e){
+    case 'netRed':
+      openModal('随机事件 · 网红探店',`
+        <div class="body">一位本地网红来了，正在门口摆拍。<br>她愿意发一条探店视频。<br>
+        <b>效果：客流 +50%，持续 3 天</b>（但可能要借你相机）</div>
+        <div class="foot"><button class="primary" data-close>欢迎探店</button></div>`,()=>{
+          S.events.netRed=3; log('网红探店：客流+50%（3天）','good'); save(); render();
+        });
+      break;
+    case 'newShop':
+      openModal('随机事件 · 隔壁开新店',`
+        <div class="body">隔壁新开了一家「AI 快拍」。<br>印着巨大的招牌：<b>证件照 ￥9.9</b>。<br>
+        <b>客流 -20%，持续 3 天</b></div>
+        <div class="foot"><button class="primary" data-close>接受挑战</button></div>`,()=>{
+          S.events.newShop=3; log('隔壁新店开业：客流-20%（3天）','bad'); save(); render();
+        });
+      break;
+    case 'camera':
+      openModal('随机事件 · 相机故障',`
+        <div class="body">你的相机摔了一下，对焦开始抽搐。<br>
+        <b>拍摄画质 -20</b>，直到花 ￥300 维修。</div>
+        <div class="foot"><button class="primary" data-close>记下了</button></div>`,()=>{
+          S.cameraHP=30; S.events.cameraBroken=true; log('相机故障：画质下降，需维修','bad'); save(); render();
+        });
+      break;
+    case 'refer':
+      openModal('随机事件 · 老客户介绍',`
+        <div class="body">上个月的老客户带了两家人来！<br><b>今日新客 +2</b>，不占时段。</div>
+        <div class="foot"><button class="primary" data-close>太棒了</button></div>`,()=>{
+          S.events.referToday=2; log('老客户介绍：今日新客+2','good'); save(); render();
+        });
+      break;
+    case 'rentUp':
+      openModal('随机事件 · 房东涨租',`
+        <div class="body">房东通知：<b>房租上涨 10%（永久）</b>。<br>“地段现在值这个价了，理解一下。”</div>
+        <div class="foot"><button class="primary" data-close>接受</button></div>`,()=>{
+          S.rentUp=true; log('房东涨租：固定支出+10%（永久）','bad'); save(); render();
+        });
+      break;
+  }
+}
+
+/* ================================================================
+   Modal 通用
+================================================================ */
+function openModal(title,html,onClose){
+  $('overlay').innerHTML=`<div class="modal"><h2>${title}</h2>${html}</div>`;
+  $('overlay').classList.add('show');
+  if(onClose) bindClose(onClose);
+  else bindClose(null);
+}
+function bindClose(onClose, noAuto){
+  const ov=$('overlay');
+  const buttons=[...ov.querySelectorAll('[data-close]')];
+  const close=()=>{
+    ov.classList.remove('show');
+    ov.innerHTML='';
+    if(onClose) onClose();
+  };
+  buttons.forEach(b=>b.onclick=close);
+  if(!noAuto){
+    ov.onclick=(e)=>{ if(e.target===ov) close(); };
+  }
+}
+
+/* ================================================================
+   游戏结束
+================================================================ */
+function gameOver(reason){
+  stopArrivals(); setSpeed(0);
+  const f=fixedCost();
+  $('overlay').innerHTML=`
+  <div class="modal" style="text-align:center">
+    <div style="font-size:44px">💸</div>
+    <h2 style="margin-top:8px">${reason} · 第 ${S.day} 天</h2>
+    <div class="body">连续 7 天净现金流为负，现金流断裂。<br>
+    你坚持了 <b>${S.day}</b> 天，攒下 <b>${S.fans}</b> 粉丝与 <b>${S.works.length}</b> 张作品。</div>
+    <div class="report" style="text-align:left;margin-top:14px">
+      <div class="rline"><span>现金余额</span><b>${fmt(S.cash)}</b></div>
+      <div class="rline"><span>口碑</span><b>${S.rep.toFixed(1)}★</b></div>
+      <div class="rline"><span>总营收日</span><b>${S.day}</b></div>
+    </div>
+    <div class="foot" style="justify-content:center"><button class="primary" id="btnRestart">重新开始</button></div>
+  </div>`;
+  $('overlay').classList.add('show');
+  $('btnRestart').onclick=()=>{ S=newState(); localStorage.removeItem('shutter_crisis'); setSpeed(1); setPhase('decision'); render(); log('新的一天，重新出发','info'); };
+}
+
+/* ================================================================
+   按钮绑定 & 启动
+================================================================ */
+$('sp0').onclick=()=>setSpeed(0);
+$('sp1').onclick=()=>setSpeed(1);
+$('sp2').onclick=()=>setSpeed(2);
+$('sp4').onclick=()=>setSpeed(4);
+$('spSkip').onclick=()=>{ if(phase==='shop'){ closeDay(); } };
+
+$('btnOpen').onclick=()=>{ if(phase==='decision') startDay(); };
+
+$('btnReset').onclick=()=>{
+  localStorage.removeItem('shutter_crisis');
+  S=newState(); stopArrivals(); setSpeed(1); setPhase('decision'); render();
+  log('存档已清空，全新开业','info'); toast('已重新开始');
+};
+
+$('btnHire').onclick=()=>{
+  if(S.hired>=2||S.cash<500) return;
+  S.cash-=500; S.hired++;
+  log('招聘了 1 名摄影师（日薪200，+4时段）','info'); save(); render();
+};
+$('btnExpand').onclick=()=>{
+  if(S.expanded||S.cash<3000) return;
+  S.cash-=3000; S.expanded=true;
+  log('店面向右扩张：+2 时段，房租+80/天','info'); save(); render();
+};
+$('btnPost').onclick=()=>{
+  if(S.postedToday) return;
+  S.postedToday=true;
+  const best=S.works.reduce((m,w)=>Math.max(m,w.quality),0);
+  const gain=Math.round(10 + best*0.4*(1+ad().contentBonus));
+  S.fans+=gain;
+  log(`发布内容：涨粉 ${gain}`,'good'); save(); render(); toast(`内容发布成功，涨粉 ${gain}`);
+};
+$('btnRepair').onclick=()=>{
+  if(S.cameraHP===100||S.cash<300) return;
+  S.cash-=300; S.cameraHP=100; S.events.cameraBroken=false;
+  log('相机已维修','info'); save(); render();
+};
+$('btnClose').onclick=()=>closeDay();
+
+document.addEventListener('keydown',(e)=>{
+  if(e.code==='Space' && document.getElementById('btnShot')) e.preventDefault();
+});
+
+/* 启动：若已有存档则直接进入决策 */
+if(S.day>1){
+  setSpeed(1);
+  setPhase('decision');
+  render();
+  log('已读档 · 继续经营','info');
+}else{
+  setSpeed(1);
+  setPhase('decision');
+  render();
+  log('新店开业 · 祝你生存到 AI 时代','info');
+}
+</script>
+</body>
+</html>
