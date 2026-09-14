@@ -83,10 +83,15 @@ function StagePlan({ s, run, business, onManualShoot }) {
           const built = (s.roomsBuilt && s.roomsBuilt[key]) != null ? s.roomsBuilt[key] : 1
           const roomCap = Math.min(s.grade + 1, 5)
           const canBuild = built < roomCap
+          const fup = FACILITIES.find((x) => x.key === key)
+          const upCost = s.fac[key] < 5 ? (fup && fup.upCost[s.fac[key] + 1]) || 0 : 0
           return (
             <div key={key} className={'stage-room ' + (sel === key ? 'sel' : '')}
               style={{ left: r.x + '%', top: r.y + '%', width: r.w + '%', height: r.h + '%' }}>
               <div className="sr-head" onClick={() => setSel(key)}>{r.name} <span>{built}间·Lv{s.fac[key]}</span></div>
+              {s.fac[key] < roomCap && upCost > 0 && (
+                <div className="sr-up" onClick={() => setSel(key)} title="点房间就地升级">升 Lv{s.fac[key] + 1} · ¥{fmt(upCost)}</div>
+              )}
               <div className="sr-rooms">
                 {Array.from({ length: built }).map((_, i) => (
                   <div key={i} className="sr-room on" onClick={() => setSel(key)} />
