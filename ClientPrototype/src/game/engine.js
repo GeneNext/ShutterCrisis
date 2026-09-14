@@ -983,7 +983,10 @@ function deliverOrder(s, o) {
     s.weekAcc.spread++
     toast(s, 'fans', `${o.name} 把照片分享到了朋友圈 / 平台：粉丝 +${gain}`, 0)
   }
-  if (qualityOK && satis > 0.75) s.reputation = clampRep(s.reputation + (quality >= 0.8 ? 0.035 : 0.025))
+  if (qualityOK) {
+    const add = satis >= 0.85 ? 0.05 : satis >= 0.7 ? 0.04 : satis >= 0.55 ? 0.03 : satis >= 0.4 ? 0.02 : 0
+    if (add) s.reputation = clampRep(s.reputation + add)
+  }
   s.irreplaceable += qualityOK ? 1 : -1
   o.done = true
   s.lastDeliver = { id: o.id, name: o.name, pay: pay + tip }
