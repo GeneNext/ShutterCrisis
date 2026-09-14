@@ -122,7 +122,7 @@ export function createGame(seed = 20260914) {
     reportHistory: [], weeklyReports: [], lastWeekNet: null,
     weekAcc: { income: 0, loss: 0, retained: 0, spread: 0, days: 0 },
     streakPos: 0, negativeDays: 0, totalRevenue: 0, delivered: 0, deliveredBy: {}, bestWorkQuality: 0,
-    inbox: [], inboxSeq: 1, quarrelsToday: 0, quarrelWinStreak: 0, quarrel: null,
+    inbox: [], inboxSeq: 1, quarrelsToday: 0, quarrelWinStreak: 0, quarrel: null, lastQuarrelDay: -9,
     reviewDoneDay: -9, reviewTiers: [], serviceEventFallback: 0, reviewPulse: 0,
     ai: { stage: 0, subscribed: false }, irreplaceable: 10, replacePower: 0,
     adsToday: [], publishedDay: -9, consolesToday: 0, skillPoints: 0,
@@ -831,8 +831,9 @@ function simulateSlot(s, slot) {
             o.satisfaction += 0.12
             toast(s, 'warn', `客服上前安抚了不满的客人（补偿 ¥${fmt(tip)}，客诉未升级）`, -tip)
           }
-        } else if (s.quarrelsToday < 2 && !s.pendingQuarrel) {
+        } else if (s.quarrelsToday < 2 && s.round - s.lastQuarrelDay >= 3 && !s.pendingQuarrel) {
           s.pendingQuarrel = { price: o.price, name: o.name } // 没有客服：只能老板亲自出面
+          s.lastQuarrelDay = s.round
         }
       }
       if (o.waitSlots > crowd.patience + 1) angryLeave(s, o, frame, '等待过久')
@@ -1108,7 +1109,8 @@ function finishDay(s) {
     })
     s.serviceEventFallback = 0
   }
-  if (worst && s.quarrelsToday < 2 && roll(s, 771) < 0.5) {
+  if (worst && s.quarrelsToday < 2 && s.round - s.lastQuarrelDay >= 3 && roll(s, 771) < 0.3) {
+    s.lastQuarrelDay = s.round
     s.inbox.push({ id: s.inboxSeq++, kind: 'quarrel', name: '有客人不服，要讨说法', level: 'now', ref: { price: worst.amount } })
   }
   // order=60 店铺等级评审（五维缺一不可）
