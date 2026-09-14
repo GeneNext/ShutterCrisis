@@ -6,6 +6,7 @@ import {
   FACILITIES, TIER_NAMES, FORMS, FORM_RENOVATE, ORDERS, CROWDS, PRICING, WALKIN_POLICY,
   CHANNELS, CONTENT_TOPICS, POSTS, TRAITS, QUALS, STATIONS, HANDS, REVIEWERS,
   AI_STAGES, AI_SUB_COST,
+  GEAR, gearMarketValue,
 } from '../game/engine.js'
 import { Bar, Chip, Section, Btn, TalentChip, StageChip } from './components.jsx'
 
@@ -407,4 +408,113 @@ function MILESTONE_NAME(key) {
     wed1: '首个婚礼单', god1: '首次封神', win3: '吵架三连胜', grade3: '升上 3★', grade4: '升上 4★',
   }
   return map[key] || key
+}
+
+// ================= 器械库（Gear 资产经营） =================
+const GEAR_CAT_NAMES = { camera: '相机', lens: '镜头', light: '灯光' }
+function gearValue(s, m) { // 当前市场价
+  const q = (s.gear && s.gear.quote) || {}
+  return q[m.key] != null ? q[m.key] : m.base
+}
+// 我的器械总市值：买价总和 vs 现价总和（账面盈亏）
+function gearPnl(s) {
+  const owned = (s.gear && s.gear.owned) || []
+  const invested = owned.reduce((a, it) => a + it.buyPrice, 0)
+  const market = owned.reduce((a, it) => a + gearValue(s, geaModel(s, it)), 0)
+  return { count: owned.length, invested, market, pnl: market - invested }
+}
+function geaModel(s, it) {
+  const list = (GEAR[it.cat] || []).filter((m) => m.key === it.model)
+  return list[0] || it
+}
+export function Gear({ s, run }) {
+  const pnl = gearPnl(s)
+  const dep = fixedCostBreakdown(s).gearDep
+  return (
+    <div className="gear">
+      <Section title={`器械库 · 当前市值 ¥${fmt(pnl.market)} · 成本 ¥${fmt(pnl.invested)}`}>
+        <div className="cols">
+          <div>在库 <b>{pnl.count} 件</b></div>
+          <div className={pnl.pnl >= 0 ? 'good' : 'bad'}>{pnl.pnl >= 0 ? '账面 +' : '账面 '}{fmt(pnl.pnl)}</div>
+          <div>每日折旧 <b className="bad">¥{fmt(dep)}/天</b></div>
+          <div>计入估值 <b>×0.7</b></div>
+        </div>
+      </Section>
+
+      <Section title="我的器械（可卖出回笼现金）">
+        {(s.gear && s.gear.owned.slice().reverse().map((it) => {
+          const m = geaModel(s, it)
+          const mv = gearValue(s, m)
+          return (
+            <div key={it.uid} className="row gear-item">
+              <div style={{ flex: 1 }}>
+                <b>{m.name}</b>
+                <span className="sub"> 买入 ¥{fmt(it.buyPrice)} · 现价 ¥{fmt(mv)}</span>
+              </div>
+              <Btn kind="warn" onClick={() => { act(s, 'sellGear', it.uid); run() }}>卖出 ¥{fmt(Math.round(mv * m.keep))}</Btn>
+            </div>
+          )
+        }))}
+        {(!s.gear || s.gear.owned.length === 0) && <div className="sub">器械库空——去「选购器械」补几件主力干活机。</div>}
+      </Section>
+
+      <Section title="选购器械（现价波动，买后占用现金 + 每日折旧）">
+        {Object.keys(GEAR).map((cat) => (
+          <div key={cat} style={{ marginBottom: 6 }}>
+            <b>{GEAR_CAT_NAMES[cat]}</b>
+            <div className="row wrap">
+              {GEAR[cat].map((m) => {
+                const v = gearValue(s, m)
+                const locked = s.grade < m.lock
+                return (
+                  <span key={m.key} className="row">
+                    <Btn kind={locked ? '' : 'buy'} disabled={locked || s.cash < v}
+                      title={locked ? `需店铺 ${m.lock}★` : m.note}
+                      onClick={() => { act(s, 'buyGear', cat, m.key); run() }}>
+                      {m.name} ¥{fmt(v)}{locked ? `（${m.lock}★）` : ''}
+                    </Btn>
+                    <span className="sub">{m.note}</span>
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </Section>
+
+      <Section title="价格走势（近 14 天）" right={<span className="sub">区间 = 基准价 50%~150%</span>}>
+        {Object.keys(GEAR).map((cat) => {
+          const seen = new Set()
+          const rows = ((s.gear && s.gear.owned) || []).filter((it) => {
+            if (seen.has(it.model)) return false
+            seen.add(it.model); return true
+          }).filter((it) => it.cat === cat)
+          if (rows.length === 0) return null
+          return (
+            <div key={cat} style={{ marginBottom: 6 }}>
+              <b>{GEAR_CAT_NAMES[cat]}</b>
+              {rows.map((it) => {
+                const m = geaModel(s, it)
+                const hist = ((s.gear.history && s.gear.history[it.model]) || []).slice(-14)
+                const base = m.base || 1
+                return (
+                  <div key={it.uid} className="row trend-row">
+                    <span style={{ width: 170 }}>{m.name}</span>
+                    <span className="trend-bars">
+                      {hist.map((v, i) => {
+                        const up = i > 0 && v >= hist[i - 1]
+                        return <span key={i} className={'tbar ' + (up ? 'up' : (i > 0 ? 'down' : ''))} style={{ height: Math.max(3, Math.round((v / (base * 1.5)) * 52)) }} title={`${fmt(v)}`} />
+                      })}
+                      {hist.length === 0 && <span className="sub">无记录</span>}
+                    </span>
+                    <span className="sub">¥{fmt(gearValue(s, m))}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </Section>
+    </div>
+  )
 }

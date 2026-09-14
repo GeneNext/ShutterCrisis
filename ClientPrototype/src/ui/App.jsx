@@ -4,7 +4,7 @@ import {
   act, nextDay, startBusiness, stepSlot, skipDay, saveGame, loadGame, clearSave,
   fmt, isReviewDay,
 } from '../game/engine.js'
-import { Briefing, Orders, Staff, Market, Report, stateName } from './panels.jsx'
+import { Briefing, Orders, Staff, Market, Report, Gear, stateName } from './panels.jsx'
 import { Home } from './home-stage.jsx'
 import { SettleLite, QuarrelModal, ManualShootModal, GradeCeremony, Inbox, Ending, MapModal, ReviewModal, ComplaintModal } from './modals.jsx'
 import { Btn, useToasts, Chip } from './components.jsx'
@@ -14,6 +14,7 @@ const TABS = [
   { key: 'home', name: '门店' },
   { key: 'orders', name: '订单' },
   { key: 'staff', name: '员工' },
+  { key: 'gear', name: '器械' },
   { key: 'market', name: '线上' },
   { key: 'report', name: '报表' },
 ]
@@ -153,6 +154,7 @@ export default function App() {
             {tab === 'home' && <Home s={s} run={run} world={world} onManualShoot={(o) => setManualOrder(o)} />}
             {tab === 'orders' && <Orders s={s} />}
             {tab === 'staff' && <Staff s={s} run={run} />}
+            {tab === 'gear' && <Gear s={s} run={run} />}
             {tab === 'market' && <Market s={s} run={run} />}
             {tab === 'report' && <Report s={s} run={run} />}
           </div>

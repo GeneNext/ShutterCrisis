@@ -13,12 +13,14 @@ import {
   STAGES as STAFF_STAGES, STATIONS, GRADES, storeValue, HANDS, QUARREL_CUSTOMERS,
   REVIEWERS, REVIEW_TIERS, AI_STAGES, AI_SUB_COST, RESCUE_DEALS, RESCUE_COOLDOWN,
   EVENTS, SERVICE_EVENTS, MILESTONES, AWARD_TYPES, SURNAMES, GIVEN, MAP, HAND_TALK,
+  GEAR, GEAR_INIT, gearMarketValue,
 } from './catalogs.js'
 
 const SLOTS_BASE = 8
 const RENT_PER_CELL = 2.5
 const UTIL_PER_CELL = 0.8
 const DEPRECIATION = 0.006
+const GEAR_DEPRECIATION = 0.003 // D10：器械折旧 = 在库买入价总和 ×0.003/天（与 Facilities 折旧并行，基数不同不重复）
 const AI_HIT_PRICE = { id: 0.5, portrait: 0.85, product: 0.9 }
 const AI_HIT_FROM = { id: 0, portrait: 1, product: 3 }
 
@@ -30,6 +32,49 @@ export const day = (s) => s.round + 1
 const nameOf = (rnd) => SURNAMES[Math.floor(rnd() * SURNAMES.length)] + GIVEN[Math.floor(rnd() * GIVEN.length)]
 export function fmt(n) { return Math.round(n).toLocaleString('en-US') }
 function clampRep(v) { return Math.max(0, Math.min(5, v)) }
+
+// ---------------- 器械成长系统 Gear（引擎权威：买入/卖出/波动/折旧） ----------------
+const gearAll = () => [...GEAR.camera, ...GEAR.lens, ...GEAR.light]
+const gearModelOf = (cat, key) => GEAR[cat].find((m) => m.key === key)
+const gearNow = (s, m) => { const q = (s.gear && s.gear.quote) || {}; return q[m.key] != null ? q[m.key] : m.base }
+// 一次性注入开局 14 件（D6：开店自带资产，不扣现金）；quote 全型号初始 = 基准价
+function gearInit(s) {
+  const own = []
+  let uid = 0
+  for (const cat of Object.keys(GEAR_INIT)) {
+    for (const it of GEAR_INIT[cat]) {
+      const m = gearModelOf(cat, it.key)
+      for (let i = 0; i < it.n; i++) { uid++; own.push({ uid, cat, model: it.key, buyPrice: m.base, day: day(s) }) }
+    }
+  }
+  const quote = {}, history = {}
+  for (const m of gearAll()) { quote[m.key] = m.base; history[m.key] = [m.base] }
+  s.gear = { uidSeq: uid, owned: own, quote, history }
+}
+// 每日市场价确定性波动（D9：±波动率，钳制基准价 50%~150%；天+型号派生 → 存档可复现）
+function gearTickMarket(s) {
+  if (!s.gear) return
+  for (const m of gearAll()) {
+    const rnd = mulberry32((s.seed * 131 + m.key.length * 17 + s.round * 10007) >>> 0)()
+    const delta = (rnd * 2 - 1) * m.vol
+    const hi = Math.min(m.base * 1.5, gearNow(s, m) * (1 + delta))
+    const lo = m.base * 0.5
+    const next = Math.max(lo, hi)
+    s.gear.quote[m.key] = Math.round(next)
+    const h = s.gear.history[m.key]; h.push(next); if (h.length > 14) h.shift()
+  }
+}
+// 卖出价 = 当前市场价 × 保值率 × 使用折旧系数（D8：用Dep = max(60%, 1 − 持有天数×0.3%)）
+function gearSellValue(s, it) {
+  const m = gearModelOf(it.cat, it.model)
+  const held = Math.max(0, day(s) - it.day)
+  const useDepr = Math.max(0.6, 1 - held * 0.003)
+  return Math.round(gearNow(s, m) * m.keep * useDepr)
+}
+function gearDepreciationTotal(s) { // D10：在库买入价总和 ×0.003
+  const sum = ((s.gear && s.gear.owned) || []).reduce((a, it) => a + it.buyPrice, 0)
+  return Math.round(sum * GEAR_DEPRECIATION)
+}
 const eventEff = (s, key, dft) => {
   let v = dft
   for (const e of Object.values(s.timedEffects)) if (e.eff[key] != null) v *= e.eff[key]
@@ -59,8 +104,9 @@ export function fixedCostBreakdown(s) {
   let equipInvested = 0
   for (const f of FACILITIES) if (f.cat === 'equip') for (let lv = 2; lv <= s.fac[f.key]; lv++) equipInvested += f.upCost[lv]
   const depreciation = Math.round(equipInvested * DEPRECIATION)
+  const gearDep = gearDepreciationTotal(s) // D10：器械折旧 = 在库买入价总和 ×0.003/天
   const ai = s.ai.subscribed ? AI_SUB_COST : 0
-  return { cells, rent, formsRent, utilities, wages, depreciation, ai, total: rent + formsRent + utilities + wages + depreciation + ai }
+  return { cells, rent, formsRent, utilities, wages, depreciation, gearDep, ai, total: rent + formsRent + utilities + wages + depreciation + gearDep + ai }
 }
 // 扩张确认对照（§7.4 硬规则：一次性投入 / 新增日固定支出 vs 近 3 日均收入 / 回本天数）
 export function expandPreview(s, dir) {
@@ -141,6 +187,8 @@ export function createGame(seed = 20260914) {
   for (const z of Object.keys(FORMS)) s.roomsBuilt[z] = 1
   s.pendingRush = false
   s.pendingQuarrel = null
+  s.gear = null
+  gearInit(s) // 注入 14 件开局器械资产（D6，不扣现金）
   // 开局班底：1 名成长型摄影师（教学锚）+ 1 名普通客服
   hireGenerated(s, 'photographer', 'growth'); s.staff[0].skill = 2
   hireGenerated(s, 'service', 'normal')
@@ -300,6 +348,29 @@ const ACTIONS = {
     s.cash += refund
     toast(s, 'sell', `变卖 ${f.name}（${TIER_NAMES[key][lv - 1]}），回收 40%：+${refund}`, refund)
     return { ok: true, refund }
+  },
+  buyGear(s, cat, model) {
+    const m = gearModelOf(cat, model)
+    if (!m) return { ok: false, err: '未知机型' }
+    if (s.grade < m.lock) return { ok: false, err: `需要店铺 ${m.lock}★ 解锁` }
+    const price = gearNow(s, m)
+    if (s.cash < price) return { ok: false, err: `现金不足（需 ¥${fmt(price)}）` }
+    s.cash -= price
+    s.gear.uidSeq++
+    s.gear.owned.push({ uid: s.gear.uidSeq, cat, model, buyPrice: price, day: day(s) })
+    toast(s, 'buy', `购入 ${m.name}：¥${fmt(price)}（次日起计入每日折旧）`, -price)
+    return { ok: true, price }
+  },
+  sellGear(s, uid) {
+    const idx = (s.gear.owned || []).findIndex((it) => it.uid === uid)
+    if (idx < 0) return { ok: false, err: '器械不存在' }
+    const it = s.gear.owned[idx]
+    const m = gearModelOf(it.cat, it.model)
+    const value = gearSellValue(s, it)
+    s.gear.owned.splice(idx, 1)
+    s.cash += value
+    toast(s, 'sell', `卖出 ${m.name}：回收 ¥${fmt(value)}（已含二手折价）`, value)
+    return { ok: true, value, profit: value - it.buyPrice }
   },
   expandStudio(s, dir) {
     const costs = { right: 8000 * (1 + s.grid.right), back: 20000, second: 50000 }
@@ -1021,6 +1092,8 @@ export function nextDay(s) {
   s.toasts = []
   s.adsToday = []
   s.reviewPulse = 0
+  // 器械市场每日确定性波动（进出价生效，存档可复现）
+  gearTickMarket(s)
   // 持续效果到期 / 施工推进
   for (const k of Object.keys(s.timedEffects)) if (day(s) > s.timedEffects[k].until) delete s.timedEffects[k]
   s.renovations = s.renovations.filter((r) => {
@@ -1380,7 +1453,7 @@ export {
   FORMS, TIER_NAMES, FORM_RENOVATE, FACILITIES, ORDERS, CROWDS, PRICING, WALKIN_POLICY,
   CHANNELS, CONTENT_TOPICS, POSTS, TRAITS, QUALS, QUAL_COST, STATIONS, GRADES, HANDS,
   QUARREL_CUSTOMERS, REVIEWERS, REVIEW_TIERS, AI_STAGES, AI_SUB_COST, RESCUE_DEALS,
-  SERVICE_EVENTS, MILESTONES, storeValue, MAP,
+  SERVICE_EVENTS, MILESTONES, storeValue, MAP, GEAR, gearMarketValue,
 }
 
 // ---------------- 存档（localStorage） ----------------
@@ -1389,7 +1462,9 @@ export function saveGame(s) { try { localStorage.setItem(SAVE_KEY, JSON.stringif
 export function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY)
-    return raw ? JSON.parse(raw) : null
+    const w = raw ? JSON.parse(raw) : null
+    if (w && w.locs) for (const k of Object.keys(w.locs)) if (w.locs[k] && !w.locs[k].gear) gearInit(w.locs[k]) // 旧档兼容：无 Gear 字段自动补初始器械
+    return w
   } catch (e) { return null }
 }
 export function clearSave() { try { localStorage.removeItem(SAVE_KEY) } catch (e) { /* 忽略 */ } }

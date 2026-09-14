@@ -413,6 +413,37 @@ section('10. 全自动日流程：一键接单 + 自动排程')
   ok(r.ok !== false, 'autoMorning 返回正常')
 }
 
+// ---------- 11. 器械成长系统 Gear（买入/卖出/波动/折旧） ----------
+section('11. 器械成长系统 Gear：开局资产 + 波动 + 买卖折价 + 折旧')
+{
+  const s = createGame(707)
+  ok(s.gear && s.gear.owned.length === 14, '开局注入 14 件器械资产（不扣现金）')
+  ok(s.gear.owned.every((it) => it.buyPrice > 0), '初始器械均有买入价（资产，资产经营可估值）')
+  const q0 = JSON.stringify(s.gear.quote)
+  // 每日市场价确定性波动
+  const priceBefore = s.gear.quote['a7m4']
+  nextDay(s)
+  const priceAfter = s.gear.quote['a7m4']
+  ok(JSON.stringify(s.gear.quote) !== q0 || priceAfter !== priceBefore, '下一天市场价确定性波动')
+  // 买入：锁星 + 现金判
+  const denied = act(s, 'buyGear', 'camera', 'x2d') // x2d 需 4★，新档仅 1★
+  ok(!denied.ok && s.cash > 0, '高星器械受星级门槛拦截（x2d 需 4★被拒）')
+  const led = s.gear.quote['ledpanel']
+  const beforeCash = s.cash
+  const rBuy = act(s, 'buyGear', 'light', 'ledpanel')
+  ok(rBuy.ok && s.cash === beforeCash - led, '买入按当前市场价扣款（ledpanel ' + led + '）')
+  // 卖出：现价×保值率×使用折旧，几乎必折价（回笼 < 买入价）
+  const uid = s.gear.owned[s.gear.owned.length - 1].uid
+  const rSell = act(s, 'sellGear', uid)
+  ok(rSell.ok && rSell.value < rBuy.price, '卖出含折旧折价（卖 ' + rSell.value + ' < 买 ' + rBuy.price + '）')
+  ok(s.gear.owned.length === 14, '卖出后库存回到 14')
+  // 折旧计入每日固定成本
+  nextDay(s)
+  const fb = fixedCostBreakdown(s)
+  ok(fb.gearDep > 0, '器械折旧计入每日固定支出（gearDep=' + fb.gearDep + '/天）')
+  ok(fb.total === fb.rent + fb.formsRent + fb.utilities + fb.wages + fb.depreciation + fb.gearDep + fb.ai, '固定成本总账含器械折旧项')
+}
+
 console.log('\n==============================')
 console.log(`通过 ${passed} / 失败 ${failed}`)
 if (failed > 0) process.exit(1)

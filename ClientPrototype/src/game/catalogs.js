@@ -216,7 +216,55 @@ export function storeValue(s) {
     return sum + v
   }, 0)
   const forms = Object.entries(s.forms).reduce((sum, [, lv]) => sum + (lv === 1 ? 6000 : lv === 2 ? 20000 : 0), 0)
-  return Math.round(s.cash + (invested + forms) * 0.6)
+  const gearValue = gearMarketValue(s) // 器械当前市值 ×0.7 计入估值（资产经营的一部分）
+  return Math.round(s.cash + (invested + forms) * 0.6 + gearValue * 0.7)
+}
+
+// ---------- 器械成长系统 Gear（具体型号器械资产经营；与 Facilities 抽象等级平行/软联动） ----------
+// D 设计口径：保值率分"理财产品"与"消耗品"，波动率分"热门新品"与"经典稳款"；灯光整体保值率低于相机。
+export const GEAR = {
+  camera: [
+    { key: 'a7m3',   name: '索尼 A7M3',       tier: 1, base: 8000,  keep: 0.90, vol: 0.08, lock: 1, note: '经典保值款：跌不动，适合长期持有' },
+    { key: 'a7m4',   name: '索尼 A7M4',       tier: 2, base: 16000, keep: 0.85, vol: 0.12, lock: 1, note: '主力干活机，价格平稳' },
+    { key: 'a7s3',   name: '索尼 A7S3',       tier: 3, base: 23000, keep: 0.80, vol: 0.15, lock: 2, note: '视频旗舰：热度高波动大' },
+    { key: 'a7r5',   name: '索尼 A7R5',       tier: 3, base: 26000, keep: 0.78, vol: 0.15, lock: 2, note: '高像素款：竞争激烈，贬值偏快' },
+    { key: 'r5',     name: '佳能 R5',         tier: 3, base: 25000, keep: 0.82, vol: 0.14, lock: 2, note: '竞品同档，换门之选' },
+    { key: 'z8',     name: '尼康 Z8',         tier: 3, base: 27000, keep: 0.80, vol: 0.15, lock: 2, note: '竞品同档，换门之选' },
+    { key: 'a1',     name: '索尼 A1',         tier: 4, base: 48000, keep: 0.75, vol: 0.18, lock: 3, note: '旗舰：买时贵、波动大，赌涨价' },
+    { key: 'gfx50sii', name: '富士 GFX 50S II', tier: 4, base: 35000, keep: 0.88, vol: 0.10, lock: 3, note: '小众保值：涨得慢但几乎不亏' },
+    { key: 'x2d',    name: '哈苏 X2D',        tier: 5, base: 55000, keep: 0.92, vol: 0.08, lock: 4, note: '"理财产品"：顶级保值，可作资产配置' },
+  ],
+  lens: [
+    { key: '24-70',   name: '24-70mm f/2.8',  tier: 2, base: 14000, keep: 0.88, vol: 0.08, lock: 1, note: '标准干活焦段' },
+    { key: '35',      name: '35mm f/1.4',      tier: 2, base: 11000, keep: 0.87, vol: 0.08, lock: 1, note: '人文焦段' },
+    { key: '85',      name: '85mm f/1.4',      tier: 2, base: 12000, keep: 0.87, vol: 0.08, lock: 1, note: '人像焦段' },
+    { key: '70-200',  name: '70-200mm f/2.8',  tier: 3, base: 19000, keep: 0.86, vol: 0.10, lock: 2, note: '长焦（婚纱 / 活动）' },
+    { key: '16-35',   name: '16-35mm f/2.8',   tier: 2, base: 15000, keep: 0.85, vol: 0.10, lock: 2, note: '广角（空间 / 商业）' },
+    { key: '50-12',   name: '50mm f/1.2',      tier: 3, base: 16000, keep: 0.84, vol: 0.10, lock: 2, note: '顶级标准定焦' },
+    { key: 'macro90', name: '90mm 微距',        tier: 2, base: 8000,  keep: 0.82, vol: 0.08, lock: 2, note: '产品 / 微距' },
+    { key: 'cine',    name: '电影定焦套装',      tier: 4, base: 60000, keep: 0.80, vol: 0.12, lock: 3, note: '视频 / 广告商拍' },
+  ],
+  light: [
+    { key: 'light250',  name: '基础影室灯 250W', tier: 1, base: 1500, keep: 0.70, vol: 0.08, lock: 1, note: '入门消耗品' },
+    { key: 'softbox',   name: '柔光箱套装',      tier: 1, base: 800,  keep: 0.65, vol: 0.08, lock: 1, note: '附件，贬值最快' },
+    { key: 'ledpanel',  name: 'LED 平板灯',      tier: 2, base: 3000, keep: 0.72, vol: 0.08, lock: 1, note: '常亮灯' },
+    { key: 'ledbar',    name: '棒灯套装',        tier: 2, base: 2500, keep: 0.70, vol: 0.08, lock: 1, note: '氛围灯' },
+    { key: 'light500',  name: '专业影室灯 500W', tier: 2, base: 4000, keep: 0.75, vol: 0.08, lock: 1, note: '主力影室灯' },
+    { key: 'baofu',     name: '宝富灯 D2',       tier: 3, base: 12000, keep: 0.82, vol: 0.10, lock: 2, note: '高端影室' },
+    { key: 'portable',  name: '外拍灯',          tier: 3, base: 8000,  keep: 0.78, vol: 0.10, lock: 2, note: '外拍' },
+    { key: 'powerbox',  name: '外拍电箱套装',     tier: 4, base: 25000, keep: 0.85, vol: 0.12, lock: 3, note: '顶级外拍，保值' },
+  ],
+}
+export const GEAR_INIT = { // D6：新档注入 14 件（开店自带资产，不扣现金）
+  camera: [{ key: 'a7m4', n: 2 }, { key: 'a7m3', n: 1 }],
+  lens: [{ key: '24-70', n: 2 }, { key: '35', n: 2 }, { key: '85', n: 2 }],
+  light: [{ key: 'light250', n: 2 }, { key: 'softbox', n: 2 }, { key: 'ledpanel', n: 1 }],
+}
+// 某型号当前市场价/· 由 engine 维护现值并写入 s.gear.quote；此处仅做统计
+export function gearMarketValue(s) {
+  const g = (s.gear && s.gear.owned) || []
+  const q = (s.gear && s.gear.quote) || {}
+  return g.reduce((sum, it) => sum + (q[it.model] != null ? q[it.model] : 0), 0)
 }
 
 // ---------- 吵架（5 手牌 × 7 顾客） ----------
