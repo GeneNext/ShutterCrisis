@@ -30,12 +30,18 @@ export const FACILITIES = [
   { key: 'storage',   name: '储物区', cat: 'zone', upCost: [0, 600, 1400, 2800, 5000], desc: '耗材成本 -，设备故障 -' },
   { key: 'display',   name: '展示区', cat: 'zone', upCost: [0, 800, 1800, 3600, 6400], desc: '候诊客人烦躁 -，新客信任 +' },
   { key: 'rest',      name: '休息区', cat: 'zone', upCost: [0, 900, 2000, 4200, 7600], desc: '员工精力恢复（去留因子）', minGrade: 2 },
-  { key: 'camera',    name: '机身',   cat: 'equip', upCost: [0, 2000, 4500, 9000, 18000], desc: '画质上限' },
-  { key: 'lens',      name: '镜头',   cat: 'equip', upCost: [0, 1800, 4000, 8200, 16000], desc: '虚化与构图上限' },
-  { key: 'light',     name: '灯光',   cat: 'equip', upCost: [0, 1600, 3600, 7400, 15000], desc: '光影质量' },
-  { key: 'backdrop',  name: '背景',   cat: 'equip', upCost: [0, 1500, 3200, 7000, 14000], desc: '场景多样性' },
-  { key: 'prop',      name: '道具',   cat: 'equip', upCost: [0, 700, 1600, 3400, 6600], desc: '特殊订单解锁（亲子/宠物）' },
-  { key: 'retoucheq', name: '修图设备', cat: 'equip', upCost: [0, 900, 2000, 4300, 8800], desc: '交付提速' },
+  { key: 'camera',    name: '机身',   cat: 'equip', upCost: [0, 2000, 4500, 9000, 18000], desc: '画质上限',
+    gain: ['解锁「海报精修」高分辨率输出单', '画质上限提升：更高价写真可接', '商业级机身（product 质量上限+）', '旗舰画质·单值上限大幅提升'] },
+  { key: 'lens',      name: '镜头',   cat: 'equip', upCost: [0, 1800, 4000, 8200, 16000], desc: '虚化与构图上限',
+    gain: ['定焦画质提升', '中焦段通吃（标准/打卡/亲子质量+）', '解锁「虚化写真」高毛利子单', '顶级定焦·单值上限大幅提升'] },
+  { key: 'light',     name: '灯光',   cat: 'equip', upCost: [0, 1600, 3600, 7400, 15000], desc: '光影质量',
+    gain: ['影室灯光影质量+', '解锁「商业产品」单（灯光 ≥3 级）', '高调商业光：产品/企业满意度+', '全无线顶级·光影质量大幅提升'] },
+  { key: 'backdrop',  name: '背景',   cat: 'equip', upCost: [0, 1500, 3200, 7000, 14000], desc: '场景多样性',
+    gain: ['场景多样，筛选满意度+', '无影棚+主题布景（高端单质量+）', '商拍级实景（product/ad 质量+）', '顶级定制布景·全单质量上限+'] },
+  { key: 'prop',      name: '道具',   cat: 'equip', upCost: [0, 700, 1600, 3400, 6600], desc: '特殊订单解锁（亲子/宠物）',
+    gain: ['解锁「亲子」单（道具 ≥1 级）', '解锁「宠物」单（道具 ≥2 级）', '商拍道具组（corp/ad 质量+）', '全套主题道具库·单值上限+'] },
+  { key: 'retoucheq', name: '修图设备', cat: 'equip', upCost: [0, 900, 2000, 4300, 8800], desc: '交付提速',
+    gain: ['修图提速', '色准屏：精修满意度+', '修图流水线×2（大单吞吐+）', '团队流水线+AI：交付大幅提速'] },
 ]
 
 // 设备具象升级线（影射命名：哈苏→哈神，佳能→加能，尼康→尼辰，索尼→索灵，
@@ -65,7 +71,7 @@ export const FORM_RENOVATE = {
   2: { cost: 20000, days: 4, capBonus: 2 },
 }
 
-// ---------- 订单类型（10 种；stations 决定动线路径） ----------
+// ---------- 订单类型（12 种；stations 决定动线路径；unlock.fac = 设备具名解锁杠杆A） ----------
 export const ORDERS = [
   { key: 'id',     name: '证件照',   price: 100,    slots: 1, crowd: 0, stations: ['wait', 'shoot', 'deliver'], unlock: {} },
   { key: 'portrait', name: '标准写真', price: 500,  slots: 2, crowd: 1, stations: ['wait', 'consult', 'makeup', 'shoot', 'select', 'retouch', 'deliver'], unlock: {} },
@@ -74,6 +80,8 @@ export const ORDERS = [
   { key: 'family',  name: '亲子',     price: 800,  slots: 2, crowd: 2, stations: ['wait', 'consult', 'makeup', 'shoot', 'select', 'retouch', 'deliver'], unlock: { grade: 3, fac: { prop: 1 } } },
   { key: 'pet',     name: '宠物',     price: 700,  slots: 2, crowd: 2, stations: ['wait', 'makeup', 'shoot', 'select', 'retouch', 'deliver'], unlock: { grade: 3, fac: { prop: 2 } } },
   { key: 'product', name: '商业产品', price: 2500, slots: 2, crowd: 3, stations: ['wait', 'consult', 'shoot', 'retouch', 'deliver'], unlock: { grade: 3, fac: { light: 3 } } },
+  { key: 'poster',  name: '海报精修', price: 1500, slots: 2, crowd: 1, stations: ['wait', 'consult', 'shoot', 'retouch', 'deliver'], unlock: { grade: 2, fac: { camera: 2 } }, note: '高分辨率输出（机身 ≥2 级解锁）' },
+  { key: 'bokeh',   name: '虚化写真', price: 2600, slots: 2, crowd: 1, stations: ['wait', 'consult', 'makeup', 'shoot', 'select', 'retouch', 'deliver'], unlock: { grade: 3, fac: { lens: 3 } }, note: '高毛利子单（镜头 ≥3 级解锁）' },
   { key: 'corp',    name: '企业形象照', price: 4000, slots: 2, crowd: 3, stations: ['wait', 'consult', 'makeup', 'shoot', 'select', 'retouch', 'deliver'], unlock: { grade: 3 } },
   { key: 'custom',  name: '高端定制', price: 8000, slots: 4, crowd: 4, stations: ['wait', 'consult', 'makeup', 'shoot', 'select', 'retouch', 'deliver'], unlock: { grade: 4, quals: ['商业'] } },
   { key: 'ad',      name: '广告商拍', price: 15000, slots: 4, crowd: 4, stations: ['wait', 'consult', 'makeup', 'shoot', 'select', 'retouch', 'deliver'], unlock: { grade: 4, forms: ['studio'], quals: ['商业'] } },

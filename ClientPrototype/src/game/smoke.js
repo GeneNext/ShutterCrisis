@@ -444,6 +444,29 @@ section('11. 器械成长系统 Gear：开局资产 + 波动 + 买卖折价 + �
   ok(fb.total === fb.rent + fb.formsRent + fb.utilities + fb.wages + fb.depreciation + fb.gearDep + fb.ai, '固定成本总账含器械折旧项')
 }
 
+// ---------- 12. 升级杠杆A：设备具名解锁订单 ----------
+section('12. 升级杠杆A：设备升级解锁具体订单（摆脱数值池）')
+{
+  const s = createGame(808)
+  const poster = ORDERS.find((o) => o.key === 'poster')
+  const bokeh = ORDERS.find((o) => o.key === 'bokeh')
+  ok(!!poster && !!bokeh, '新增海报精修/虚化写真两种设备解锁订单')
+  ok(requirementMissing(s, poster) != null, '开局机身 L1：海报单被锁（"需要机身 ≥2 级"）')
+  // 机身升 2 级 + 升 2★ → 海报解锁；若星级不够仍锁
+  s.grade = 1; s.fac.camera = 2
+  ok(requirementMissing(s, poster) != null, '机身达标但 1★：海报仍被星级门槛卡（2★）')
+  s.grade = 2
+  ok(requirementMissing(s, poster) === null, '机身 ≥2 级 + 2★ → 解锁「海报精修」')
+  // 虚化写真：镜头 ≥3 级 + 3★
+  s.grade = 3; s.fac.lens = 2
+  ok(requirementMissing(s, bokeh) != null, '镜头 L2：虚化写真仍锁（需镜头 ≥3 级）')
+  s.fac.lens = 3
+  ok(requirementMissing(s, bokeh) === null, '镜头 ≥3 级 + 3★ → 解锁「虚化写真」高毛利子单')
+  // 具名能力展示字段完整（每级一条，指向明确用途而非纯数值）
+  const cam = FACILITIES.find((x) => x.key === 'camera')
+  ok(cam.gain && cam.gain.length === 4 && cam.gain[0].includes('海报'), '机身每级具名效果字段齐备（L2 首条=海报单）')
+}
+
 console.log('\n==============================')
 console.log(`通过 ${passed} / 失败 ${failed}`)
 if (failed > 0) process.exit(1)

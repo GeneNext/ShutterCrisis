@@ -133,6 +133,9 @@ function StagePlan({ s, run, business, onManualShoot }) {
       </div>
       <div className="room-detail">
         <b>{f.name}</b> <span className="sub">{TIER_NAMES[sel] ? '当前：' + TIER_NAMES[sel][lv - 1] : ''}</span>
+        {lv < 5 && f.gain && f.gain[lv - 1] && (
+          <div className="gain-next" title="下一级解锁的具名能力">升 Lv{lv + 1} → {f.gain[lv - 1]}</div>
+        )}
         <div className="row wrap" style={{ marginTop: 6 }}>
           {lv < 5
             ? <Btn onClick={() => { act(s, 'upgradeFacility', sel); run() }} disabled={s.cash < cost || lv >= cap}>
