@@ -254,8 +254,8 @@ export const REVIEWERS = [
   { key: 'ai',     name: '神秘AI评审', bias: 0, audience: '极客' },
 ]
 export const REVIEW_TIERS = [
-  { key: 'god',   name: '封神', fans: 400, rep: 0.3, skill: 2 },
-  { key: 'good',  name: '好评', fans: 150, rep: 0.12, skill: 1 },
+  { key: 'god',   name: '封神', fans: 400, rep: 0.4, skill: 2 },
+  { key: 'good',  name: '好评', fans: 150, rep: 0.16, skill: 1 },
   { key: 'meme',  name: '有梗', fans: 300, rep: -0.05, skill: 2 },
   { key: 'trash', name: '毒舌', fans: 80, rep: -0.15, skill: 1 },
   { key: 'none',  name: '无人问津', fans: 0, rep: 0, skill: 0 },

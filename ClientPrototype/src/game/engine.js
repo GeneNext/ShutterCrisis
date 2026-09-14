@@ -983,7 +983,7 @@ function deliverOrder(s, o) {
     s.weekAcc.spread++
     toast(s, 'fans', `${o.name} 把照片分享到了朋友圈 / 平台：粉丝 +${gain}`, 0)
   }
-  if (qualityOK && satis > 0.75) s.reputation = clampRep(s.reputation + 0.015)
+  if (qualityOK && satis > 0.75) s.reputation = clampRep(s.reputation + (quality >= 0.8 ? 0.035 : 0.025))
   s.irreplaceable += qualityOK ? 1 : -1
   o.done = true
   s.lastDeliver = { id: o.id, name: o.name, pay: pay + tip }
@@ -998,7 +998,7 @@ function angryLeave(s, o, frame, cause) {
   frame.left.push({ id: o.id, name: o.name, price: o.price, cause })
   frame.loss += o.price
   toast(s, 'loss', `${o.name} 愤然离店（${cause}）：流失 ¥${fmt(o.price)}`, -o.price)
-  s.reputation = clampRep(s.reputation - 0.015)
+  s.reputation = clampRep(s.reputation - 0.01)
 }
 
 // ---------------- 回合推进 ----------------
@@ -1079,7 +1079,7 @@ function finishDay(s) {
     if (roll(s, e.id * 13) < 0.08 + trait.err * 0.1) {
       const cut = Math.round(50 + roll(s, e.id * 17) * 200)
       s.cash -= cut; s.todayVar += cut
-      s.reputation = clampRep(s.reputation - 0.015)
+      s.reputation = clampRep(s.reputation - 0.01)
       toast(s, 'warn', `${e.name} 出错了：赔偿 ${cut}（${trait.name}）`, -cut)
     }
   }
@@ -1149,6 +1149,11 @@ function finishDay(s) {
   s.todayFixed = fixed
   s.todayVar = variable
   s.lastFixedCost = fixed
+  // 零投诉日奖励：一整天没让客人愤然离店、且交付 ≥3 单，口碑 +0.06（正向激励：口碑累积靠服务好而非只靠锐评）
+  if (s.todayLoss === 0 && s.todayServed >= 3) {
+    s.reputation = clampRep(s.reputation + 0.06)
+    toast(s, 'fans', '今天零投诉、零流失：口碑 +0.06（好服务攒口碑）', 0)
+  }
   const net = s.todayIncome - fixed - variable
   const report = {
     day: day(s), income: s.todayIncome, fixed, variable, net, balance: s.cash,
