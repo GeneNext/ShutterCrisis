@@ -20,8 +20,27 @@ button { font-family: inherit; }
 .brand { display: flex; flex-direction: column; gap: 2px; }
 .plaque { font-weight: 800; font-size: 16px; color: #f0c46a; letter-spacing: 1px; }
 .top-stats { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.cash { font-size: 20px; font-weight: 800; }
+.cash { font-size: 20px; font-weight: 800; animation: cash-flash .4s ease; }
+@keyframes cash-flash { 0% { transform: scale(1); color: #f0c46a; } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
 .cash.bad { color: #ff7b72; }
+
+/* 顶部「详情」面板：慢变量 + 升星卡点可视化 */
+.grade-gap { margin-top: 10px; padding: 12px 14px; background: #1d1b26; border: 1px solid #2e2b3d;
+  border-radius: 12px; animation: fade-in .2s ease; }
+.gg-slow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.gg-dims { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.gg-title { grid-column: 1 / -1; color: #cdbfff; font-size: 13px; font-weight: 700; }
+.gg-dim { background: #232030; border: 1px solid #3a3650; border-radius: 10px; padding: 8px 10px; }
+.gg-dim.ok { border-color: #2f6b44; opacity: .75; }
+.gg-dim.bt { border-color: #a3742c; box-shadow: 0 0 0 1px #a3742c inset; }
+.gg-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #c9c5da; }
+.gg-tag { font-weight: 700; color: #9cc3ff; }
+.gg-dim.bt .gg-tag { color: #f0c46a; }
+.gg-dim.ok .gg-tag { color: #6fd08c; }
+.gg-bar { height: 8px; margin: 6px 0 4px; }
+.gg-hint { font-size: 11px; color: #ffd9a8; margin-top: 2px; }
+.gg-dim.bt .gg-hint { color: #ffc46a; font-weight: 700; }
+.gg-sub { font-size: 11px; color: #9a96ad; margin-top: 2px; }
 .top-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .mini { background: #2a2738; color: #e8e6f0; border: 1px solid #3a3650; border-radius: 8px;
   padding: 5px 10px; font-size: 12px; cursor: pointer; }
@@ -120,9 +139,11 @@ button { font-family: inherit; }
 
 /* 弹窗 */
 .overlay { position: fixed; inset: 0; background: rgba(8, 7, 14, 0.75); display: flex;
-  align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  align-items: center; justify-content: center; z-index: 50; padding: 16px; animation: fade-in .15s ease; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 .modal { background: #1d1b26; border: 1px solid #3a3650; border-radius: 14px; padding: 18px;
-  max-width: 560px; width: 100%; max-height: 86vh; overflow-y: auto; }
+  max-width: 560px; width: 100%; max-height: 86vh; overflow-y: auto; animation: pop-in .18s ease; }
+@keyframes pop-in { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
 .modal.wide { max-width: 720px; }
 .modal.small { max-width: 380px; }
 .modal.center { text-align: center; }

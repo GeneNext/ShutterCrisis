@@ -2,7 +2,7 @@
 import {
   createWorld, switchLocation, evalTasks, hintOf, locUnlocked, autoMorning,
   act, nextDay, startBusiness, stepSlot, skipDay, saveGame, loadGame, clearSave,
-  fmt, isReviewDay,
+  fmt, isReviewDay, nextGradeInfo,
 } from '../game/engine.js'
 import { Briefing, Orders, Staff, Market, Report, Gear, stateName } from './panels.jsx'
 import { Home } from './home-stage.jsx'
@@ -34,6 +34,7 @@ export default function App() {
   const [speed, setSpeed] = useState('slow')
   const [panel, setPanel] = useState(null) // 'inbox' | 'map' | 'review' | 'brief'（可开合面板，营业暂停）
   const [manualOrder, setManualOrder] = useState(null)
+  const [showDetail, setShowDetail] = useState(false) // 顶栏"详情"：慢变量(口碑/粉丝/客诉) + 升星缺口
   const timer = useRef(null)
   const pausedRef = useRef(false)
 
@@ -111,11 +112,8 @@ export default function App() {
           <span className="sub">{locName} · 第 {s.round + 1} 天{'★'.repeat(Math.min(3, world.stars[s.locKey] || 0))}</span>
         </div>
         <div className="top-stats">
-          <div className={'cash ' + (s.cash < 0 ? 'bad' : '')}>¥{fmt(s.cash)}</div>
+          <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>¥{fmt(s.cash)}</div>
           <Chip kind={cashKind(s)}>{stateName(s)}</Chip>
-          <Chip>口碑 {s.reputation.toFixed(1)}</Chip>
-          <Chip>粉丝 {fmt(s.fans)}</Chip>
-          {(s.complaintsBacklog || 0) > 0 && <Chip kind="warn">客诉 {s.complaintsBacklog}</Chip>}
           {inBusiness && <Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>}
         </div>
         <div className="top-actions">
@@ -129,6 +127,9 @@ export default function App() {
               <button className="mini" onClick={() => { skipDay(s); evalTasks(world); sync() }}>跳到结算</button>
             </>
           )}
+          <button className={'mini ' + (showDetail ? 'on' : '')} onClick={() => setShowDetail(!showDetail)} title="口碑/粉丝/客诉 + 距下一星最短缺口">
+            详情{(s.complaintsBacklog || 0) > 0 ? ` · 客诉 ${s.complaintsBacklog}` : ''}
+          </button>
           <button className={'mini ' + (serviceCount + rescueCount > 0 ? 'alert' : '')} onClick={() => setPanel(panel === 'inbox' ? null : 'inbox')}>
             收件箱{serviceCount + rescueCount > 0 ? ` (${serviceCount + rescueCount})` : ''}
           </button>
@@ -137,6 +138,7 @@ export default function App() {
           </button>
         </div>
       </div>
+      {showDetail && <GradeGap s={s} />}
       {s.cash < 0 && <div className="bankrupt-pulse" />}
 
       {/* 晨会（首日教学或「今日安排」）为全屏；其余时段为舞台+页签 */}
@@ -179,6 +181,37 @@ export default function App() {
       {modalType === 'map' && <MapModal world={world} onEnter={gotoLocation} onClose={() => setPanel(null)} />}
       {modalType === 'review' && <ReviewModal s={s} run={run} onClose={() => setPanel(null)} />}
       {useToasts(s)}
+    </div>
+  )
+}
+
+// 顶部「详情」面板：慢变量(口碑/粉丝/客诉) + 升星缺口（升星卡点可视化）
+function GradeGap({ s }) {
+  const gi = nextGradeInfo(s)
+  return (
+    <div className="grade-gap">
+      <div className="gg-slow">
+        <Chip>口碑 {s.reputation.toFixed(1)}</Chip>
+        <Chip>粉丝 {fmt(s.fans)}</Chip>
+        {(s.complaintsBacklog || 0) > 0 && <Chip kind="warn">客诉 {s.complaintsBacklog}</Chip>}
+        {gi && !gi.allOk && gi.bottleneck && <Chip kind="boss">卡点：{gi.bottleneck.label}</Chip>}
+      </div>
+      {gi && !gi.allOk && (
+        <div className="gg-dims">
+          <div className="gg-title">距「{gi.name}」还差哪几项：</div>
+          {gi.dims.map((d) => (
+            <div key={d.key} className={'gg-dim ' + (d.ok ? 'ok' : '') + (gi.bottleneck && d.key === gi.bottleneck.key ? ' bt' : '')}>
+              <div className="gg-top">
+                <span>{d.label}</span>
+                <span className="gg-tag">{d.ok ? '已达标' : Math.round(d.pct * 100) + '%'}</span>
+              </div>
+              <div className="bar gg-bar"><div className={'bar-fill ' + (d.ok ? 'green' : 'blue')} style={{ width: Math.round(d.pct * 100) + '%' }} /></div>
+              {!d.ok && d.hint && <div className="gg-hint">{d.hint}</div>}
+              {d.ok && <div className="gg-sub">{d.text}</div>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -5,7 +5,8 @@
 import {
   createGame, createWorld, makeLocation, switchLocation, locUnlocked, evalTasks, autoMorning, stepSlot,
   act, nextDay, startBusiness, skipDay, isReviewDay, requirementMissing, stationCapacity,
-  expandPreview, fixedCostBreakdown, areaCells,
+  expandPreview, fixedCostBreakdown, areaCells, nextGradeInfo, formAffinity, hintOf, toneOf,
+  REVIEWERS,
 } from './engine.js'
 import { ORDERS, FORM_RENOVATE, RESCUE_DEALS, TIER_NAMES, CROWDS, FACILITIES } from './catalogs.js'
 
@@ -465,6 +466,49 @@ section('12. 升级杠杆A：设备升级解锁具体订单（摆脱数值池）
   // 具名能力展示字段完整（每级一条，指向明确用途而非纯数值）
   const cam = FACILITIES.find((x) => x.key === 'camera')
   ok(cam.gain && cam.gain.length === 4 && cam.gain[0].includes('海报'), '机身每级具名效果字段齐备（L2 首条=海报单）')
+}
+
+// ---------- 15. 四大升级杠杆（B/E/F/G）+ 升星卡点可视化 ----------
+section('15. 升级杠杆B/E/F/G + 升星卡点')
+{
+  // 升星卡点：开局拿到 2★ 明细与瓶颈，每维 pct 在 0~1 且带"怎么做"提示
+  const g = createGame(996)
+  const gi = nextGradeInfo(g)
+  ok(gi && gi.grade === 2 && gi.bottleneck, '开局拿到 2★ 卡点明细与瓶颈（卡点可视化）')
+  ok(gi.dims.every((d) => d.pct >= 0 && d.pct <= 1), '每维缺口 pct 落在 0~1')
+  ok(gi.dims.some((d) => !d.ok && typeof d.hint === 'string'), '缺口带"怎么做"提示')
+  // 杠杆B：形态→客群定位
+  ok(formAffinity(g, 1) === 0 && formAffinity(g, 3) === 0, '开局无形态：无任何客群加成')
+  g.forms.makeup = 1
+  ok(formAffinity(g, 1) >= 0.1 && formAffinity(g, 2) >= 0.1, '独立化妆室→婚纱/亲子(crowd1/2) +0.1')
+  ok(formAffinity(g, 0) === 0, '街坊散客不受形态影响（不误伤大众盘）')
+  g.forms.reception = 2
+  ok(formAffinity(g, 3) >= 0.15 && formAffinity(g, 3) > formAffinity(g, 2), 'VIP接待室→高端客(crowd≥3)加成更高（定位分化）')
+  // 杠杆F：低现金+有器械 → 危险态提示给出"卖器械/停广告"动作
+  g.cash = 100; g.lastFixedCost = 500
+  ok(typeof hintOf(g) === 'string' && hintOf(g).includes('卖'), '破产危险态：具体动作提示含"卖器械"')
+  // 杠杆E + 杠杆G：锐评（round=2 → day=3 锐评日；同种子两局对照，噪音相同）
+  function prepReview(pt) {
+    const t = createGame(1297)
+    t.round = 2; t.priceTier = pt; t.works = []; t.pendingRetained = []
+    return t
+  }
+  ok(toneOf(prepReview('mid')) === '专业' && toneOf(prepReview('high')) === '艺术', '价格档次驱动品牌调性（艺术/专业）')
+  // G：quality=1 + 温柔评审 → 必封神 → 解锁指名复购客
+  const gG = prepReview('mid')
+  gG.works.push({ id: 7, orderKey: 'portrait', crowdIdx: 4, quality: 1, price: 1000 })
+  const pref4 = 40 + CROWDS[4].qualityBar * 30
+  const beforeG = gG.pendingRetained.length
+  act(gG, 'submitReview', 7, pref4, 'gentle')
+  ok(gG.pendingRetained[0] && gG.pendingRetained.at(-1).name.includes('指名') && gG.pendingRetained.length === beforeG + 1, '封神锐评→解锁神秘指名·回头客(杠杆G)')
+  // E：同等中等质量作品，艺术调性比专业调性分数更高 ~+0.05
+  const gE1 = prepReview('mid'), gE2 = prepReview('high')
+  const pref1 = 40 + CROWDS[1].qualityBar * 30
+  gE1.works.push({ id: 1, orderKey: 'portrait', crowdIdx: 1, quality: 0.62, price: 500 })
+  gE2.works.push({ id: 1, orderKey: 'portrait', crowdIdx: 1, quality: 0.62, price: 500 })
+  const r1 = act(gE1, 'submitReview', 1, pref1, REVIEWERS[0].key)
+  const r2 = act(gE2, 'submitReview', 1, pref1, REVIEWERS[0].key)
+  ok(r2.score - r1.score >= 0.045 && r2.score - r1.score <= 0.055, '艺术调性锐评加分 ~+0.05(杠杆E)')
 }
 
 console.log('\n==============================')

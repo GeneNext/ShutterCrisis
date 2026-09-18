@@ -645,7 +645,8 @@ const ACTIONS = {
     const crowd = crowdOf(w.crowdIdx)
     const pref = 40 + crowd.qualityBar * 30
     const over = Math.abs(retouch - pref) / 100
-    const score = Math.max(0, Math.min(1, w.quality * (1 - over * 0.35) + reviewer.bias + (roll(s, 991) - 0.5) * 0.1))
+    let score = Math.max(0, Math.min(1, w.quality * (1 - over * 0.35) + reviewer.bias + (roll(s, 991) - 0.5) * 0.1))
+    if (toneOf(s) === '艺术') score += 0.05 // 杠杆E：艺术调性→锐评更容易封神（机械牙齿）
     let tier
     if (score >= 0.85) tier = REVIEW_TIERS[0]
     else if (score >= 0.7) tier = REVIEW_TIERS[1]
@@ -658,7 +659,16 @@ const ACTIONS = {
     s.reviewTiers.push(tier.key)
     if (tier.key === 'god' || tier.key === 'good') s.goodReviews = (s.goodReviews || 0) + 1
     s.reviewDoneDay = day(s)
-    if (tier.key === 'god') s.reviewPulse = 4
+    if (tier.key === 'god') {
+      s.reviewPulse = 4
+      // 杠杆G：封神锐评→解锁「指名复购客」（下一档期为神秘回头客，价格×1.4）
+      const base = w.price || 500
+      s.pendingRetained.push({
+        orderKey: w.orderKey, crowdIdx: Math.min(4, w.crowdIdx + 1),
+        price: Math.round(base * 1.4), deposit: Math.round(base * 0.35),
+        slots: ordOf(w.orderKey).slots, name: '神秘指名·回头客', state: 'waiting', retained: true,
+      })
+    }
     toast(s, tier.rep >= 0 ? 'fans' : 'warn', `锐评「${tier.name}」：粉丝 +${tier.fans}，口碑 ${tier.rep >= 0 ? '+' : ''}${tier.rep}`, 0)
     return { ok: true, tier: tier.key, score }
   },
@@ -940,12 +950,21 @@ function simulateSlot(s, slot) {
   s.frames.push(frame)
 }
 
+// 杠杆B：空间形态→客群定位——特定形态给特定客群满意度加成（不再只是"容量+1"）
+function formAffinity(s, crowdIdx) {
+  let b = 0
+  if ((s.forms.makeup || 0) >= 1 && (crowdIdx === 1 || crowdIdx === 2)) b += 0.10 // 独立化妆室→婚纱/亲子
+  if ((s.forms.studio || 0) >= 1 && crowdIdx >= 3) b += 0.10 // 独立影棚可清场→企业/艺人
+  if ((s.forms.reception || 0) >= 2 && crowdIdx >= 3) b += 0.15 // VIP接待室→star/corp 待若上宾
+  if ((s.forms.retouch || 0) >= 1 && crowdIdx >= 2) b += 0.06 // 独立修图室→中高端交付口碑
+  return Math.min(0.2, b)
+}
 function spawnOrder(s, a, slot, frame, walkin) {
   const o = ordOf(a.orderKey)
   s.activeOrders.push({
     id: a.id, orderKey: a.orderKey, crowdIdx: a.crowdIdx, name: a.name, price: a.price,
     stations: o.stations, station: o.stations[0], stationIdx: 0,
-    waitSlots: 0, satisfaction: 0.65 + s.reputation * 0.04, clarity: null,
+    waitSlots: 0, satisfaction: Math.min(1, 0.65 + s.reputation * 0.04 + formAffinity(s, a.crowdIdx)), clarity: null,
     quality: 0, retouchQ: 0, arriveSlot: slot, walkin, rush: !!a.rush, done: false,
     appointment: !!a.appointment,
     vipQueue: !a.appointment && a.price >= avgOrderPrice(s) * 2,
@@ -1428,7 +1447,11 @@ export function hintOf(s) {
   }
   const tired = s.staff.find((e) => e.energy < 40)
   if (tired) return `${tired.name} 精力不足——排休一天，或建休息区。`
-  if (s.cash < (s.lastFixedCost || 1) * 10) return '现金偏紧——危险态可接救命大单，先别扩张。'
+  if (s.cash < (s.lastFixedCost || 1) * 10) { // 杠杆F：破产危险态→具体动作推荐（卖哪件回笼现金）
+    const gv = s.gear && s.gear.owned.length ? gearMarketValue(s) : 0
+    if (gv > 0) return `现金吃紧——先停广告，再卖 1 件器械回笼约 ¥${fmt(gv)}，或接救命大单。`
+    return '现金偏紧——危险态可接救命大单，先别扩张。'
+  }
   const nextT = nextGradeInfo(s)
   if (nextT) {
     const near = nextT.dims.find((d) => !d.ok)
@@ -1442,18 +1465,49 @@ export function stationWorkers(s, stationKey) {
   const st = find(STATIONS, stationKey)
   return workersOf(s, st.post).map((w) => ({ id: w.id, name: w.name, skill: w.skill, boss: w.id === 0 }))
 }
+
+// 升星缺口明细（提升星卡点可视化：每维进度 pct 0~1 + 一句"怎么做" hint）
+const clamp01 = (x) => Math.max(0, Math.min(1, x))
+const DIM_GAP = {
+  '2-tech':   { pct: (s) => clamp01((s.staff.reduce((m, e) => Math.max(m, e.skill), 0)) / 3),    hint: '把任一员工技能练到 3（培训/尖子生晋升）' },
+  '2-money':  { pct: (s) => clamp01(s.streakPos / 14),                                            hint: '连续 14 天不亏损（控支出/涨毛利）' },
+  '2-venue':  { pct: (s) => clamp01(Math.min(s.fac.reception, s.fac.studio) / 2),                  hint: '接待区与棚拍区同时升到 2 级' },
+  '2-rep':    { pct: (s) => clamp01(Math.min(s.reputation / 3.0, s.delivered / 50)),              hint: '口碑到 3.0 且累计交付 50 单（通常最长，先把这两个追齐）' },
+  '3-tech':   { pct: (s) => clamp01((s.staff.some((e) => e.quals.length >= 1) ? 1 : 0)),           hint: '培养 1 名专精资格员工（技能点换资格）' },
+  '3-money':  { pct: (s) => clamp01(s.totalRevenue / 100000),                                     hint: '累计营收到 10 万（提单价/接高价单）' },
+  '3-venue':  { pct: (s) => clamp01(s.fac.makeup / 3),                                             hint: '化妆区升到 3 级' },
+  '3-env':    { pct: (s) => clamp01(Math.min(s.fac.reception, s.fac.makeup, s.fac.studio, s.fac.retouch) / 2), hint: '接待/化妆/棚拍/后期 全升到 2 级' },
+  '3-rep':    { pct: (s) => clamp01(Math.min(s.reputation / 3.5, s.fans / 1000)),                 hint: '口碑到 3.5 且粉丝到 1000' },
+  '4-tech':   { pct: (s) => clamp01((s.deliveredBy.custom || 0) / 5),                             hint: '再交付高定制单' },
+  '4-money':  { pct: (s) => clamp01(Math.max(0, 1 - Math.max(0.01, s.replacePower) / Math.max(0.01, s.irreplaceable))), hint: '提高不可替代度（专精/品牌）压制 AI' },
+  '4-venue':  { pct: (s) => clamp01(Object.values(s.forms).filter((v) => v >= 1).length / 2),      hint: '再做 1~2 处房间级改造' },
+  '4-env':    { pct: (s) => clamp01(Math.min(s.fac.reception, s.fac.makeup, s.fac.studio, s.fac.retouch) / 3), hint: '四区全升到 3 级' },
+  '4-rep':    { pct: (s) => clamp01(Math.min(s.reputation / 4.0, (s.milestones.length || 0) / 5)), hint: '口碑到 4.0 且拿到 5 项里程碑' },
+  '5-tech':   { pct: (s) => clamp01(s.staff.filter((e) => e.stage === 'master' || e.stage === 'partner').length / 2), hint: '培养 2 名大师/合伙人员工' },
+  '5-money':  { pct: (s) => clamp01(storeValue(s) / 500000),                                       hint: '门店估值到 50 万（卖艺术装置/黄金地段积累资产）' },
+  '5-venue':  { pct: (s) => clamp01(Object.values(s.forms).some((v) => v >= 2) ? 1 : 0),           hint: '做 1 处 VIP 级空间改造' },
+  '5-env':    { pct: (s) => clamp01(Math.min(s.fac.reception, s.fac.makeup, s.fac.studio, s.fac.retouch) / 4), hint: '四区全升到 4 级' },
+  '5-rep':    { pct: (s) => clamp01(Math.min(s.reputation / 4.8, (s.awards.length || 0) / 3)),     hint: '口碑到 4.8 且年度评奖 ≥ 3 项' },
+}
 export function nextGradeInfo(s) {
   if (s.grade >= 5) return null
   const next = GRADES[s.grade]
-  const dims = Object.values(next.cond).map((c) => ({ label: c.label, text: c.text, ok: !!c.ok(s) }))
-  return { grade: next.grade, name: next.name, plaque: next.plaque, dims, allOk: dims.every((d) => d.ok) }
+  const dims = Object.keys(next.cond).map((k) => {
+    const c = next.cond[k]
+    const g = DIM_GAP[s.grade + '-' + k]
+    const ok = !!c.ok(s)
+    return { key: k, label: c.label, text: c.text, ok, pct: g ? g.pct(s) : ok ? 1 : 0, hint: g ? g.hint : '' }
+  })
+  const notOk = dims.filter((d) => !d.ok)
+  const bottleneck = notOk.length ? notOk.reduce((a, b) => (a.pct <= b.pct ? a : b)) : null
+  return { grade: next.grade, name: next.name, plaque: next.plaque, dims, allOk: dims.every((d) => d.ok), bottleneck }
 }
 // 目录再导出（UI 统一从引擎取）
 export {
   FORMS, TIER_NAMES, FORM_RENOVATE, FACILITIES, ORDERS, CROWDS, PRICING, WALKIN_POLICY,
   CHANNELS, CONTENT_TOPICS, POSTS, TRAITS, QUALS, QUAL_COST, STATIONS, GRADES, HANDS,
   QUARREL_CUSTOMERS, REVIEWERS, REVIEW_TIERS, AI_STAGES, AI_SUB_COST, RESCUE_DEALS,
-  SERVICE_EVENTS, MILESTONES, storeValue, MAP, GEAR, gearMarketValue,
+  SERVICE_EVENTS, MILESTONES, storeValue, MAP, GEAR, gearMarketValue, formAffinity,
 }
 
 // ---------------- 存档（localStorage） ----------------
