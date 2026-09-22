@@ -103,42 +103,51 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* 顶栏：地图入口 / 店牌 / 现金 / 状态 / 收件箱 / 速度 */}
+      {/* 顶栏：营业态只保留 左(店牌+金额) / 右(结算+收件箱)；非营业态保留完整导航 */}
       <div className="topbar">
-        <div className="brand">
-          <button className="plaque map-btn" onClick={() => setPanel('map')} title="打开地图，切换地点">
-            {PLAQUES[s.grade - 1]}
-          </button>
-          <span className="sub">{locName} · 第 {s.round + 1} 天{'★'.repeat(Math.min(3, world.stars[s.locKey] || 0))}</span>
-        </div>
-        <div className="top-stats">
-          <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>¥{fmt(s.cash)}</div>
-          <Chip kind={cashKind(s)}>{stateName(s)}</Chip>
-          {inBusiness && <Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>}
-        </div>
-        <div className="top-actions">
-          {inBusiness && (
-            <>
-              {['pause', 'slow', '1x', '2x', '4x'].map((sp) => (
-                <button key={sp} className={'mini ' + (speed === sp ? 'on' : '')} onClick={() => setSpeed(sp)}>
-                  {sp === 'pause' ? '暂停' : sp === 'slow' ? '慢' : sp}
-                </button>
-              ))}
-              <button className="mini" onClick={() => { skipDay(s); evalTasks(world); sync() }}>跳到结算</button>
-            </>
-          )}
-          <button className={'mini ' + (showDetail ? 'on' : '')} onClick={() => setShowDetail(!showDetail)} title="口碑/粉丝/客诉 + 距下一星最短缺口">
-            详情{(s.complaintsBacklog || 0) > 0 ? ` · 客诉 ${s.complaintsBacklog}` : ''}
-          </button>
-          <button className={'mini ' + (serviceCount + rescueCount > 0 ? 'alert' : '')} onClick={() => setPanel(panel === 'inbox' ? null : 'inbox')}>
-            收件箱{serviceCount + rescueCount > 0 ? ` (${serviceCount + rescueCount})` : ''}
-          </button>
-          <button className="mini" onClick={() => setPanel(panel === 'brief' ? null : 'brief')} title="接单 / 排期 / 员工预警 / 广告">
-            {showBriefing && panel === 'brief' ? '回到舞台' : '今日安排'}
-          </button>
-        </div>
+        {inBusiness ? (
+          <>
+            <div className="top-mini-left">
+              <button className="plaque map-btn" onClick={() => setPanel('map')} title="打开地图，切换地点">
+                {PLAQUES[s.grade - 1]}
+              </button>
+              <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>¥{fmt(s.cash)}</div>
+            </div>
+            <div className="top-mini-right">
+              <button className="mini" onClick={() => { skipDay(s); evalTasks(world); sync() }}>结算</button>
+              <button className={'mini ' + (serviceCount + rescueCount > 0 ? 'alert' : '')} onClick={() => setPanel(panel === 'inbox' ? null : 'inbox')}>
+                收件箱{serviceCount + rescueCount > 0 ? ` (${serviceCount + rescueCount})` : ''}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="brand">
+              <button className="plaque map-btn" onClick={() => setPanel('map')} title="打开地图，切换地点">
+                {PLAQUES[s.grade - 1]}
+              </button>
+              <span className="sub">{locName} · 第 {s.round + 1} 天{'★'.repeat(Math.min(3, world.stars[s.locKey] || 0))}</span>
+            </div>
+            <div className="top-stats">
+              <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>¥{fmt(s.cash)}</div>
+              <Chip kind={cashKind(s)}>{stateName(s)}</Chip>
+              {inBusiness && <Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>}
+            </div>
+            <div className="top-actions">
+              <button className={'mini ' + (showDetail ? 'on' : '')} onClick={() => setShowDetail(!showDetail)} title="口碑/粉丝/客诉 + 距下一星最短缺口">
+                详情{(s.complaintsBacklog || 0) > 0 ? ` · 客诉 ${s.complaintsBacklog}` : ''}
+              </button>
+              <button className={'mini ' + (serviceCount + rescueCount > 0 ? 'alert' : '')} onClick={() => setPanel(panel === 'inbox' ? null : 'inbox')}>
+                收件箱{serviceCount + rescueCount > 0 ? ` (${serviceCount + rescueCount})` : ''}
+              </button>
+              <button className="mini" onClick={() => setPanel(panel === 'brief' ? null : 'brief')} title="接单 / 排期 / 员工预警 / 广告">
+                {showBriefing && panel === 'brief' ? '回到舞台' : '今日安排'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
-      {showDetail && <GradeGap s={s} />}
+      {showDetail && !inBusiness && <GradeGap s={s} />}
       {s.cash < 0 && <div className="bankrupt-pulse" />}
 
       {/* 晨会（首日教学或「今日安排」）为全屏；其余时段为舞台+页签 */}
@@ -153,7 +162,7 @@ export default function App() {
             {isReviewDay(s) && s.phase === 'business' && <Chip kind="stage">今晚锐评日：结算后可投稿</Chip>}
           </div>
           <div className="page">
-            {tab === 'home' && <Home s={s} run={run} world={world} onManualShoot={(o) => setManualOrder(o)} />}
+            {tab === 'home' && <Home s={s} run={run} world={world} onManualShoot={(o) => setManualOrder(o)} speed={speed} setSpeed={setSpeed} onSkip={() => { skipDay(s); evalTasks(world); sync() }} />}
             {tab === 'orders' && <Orders s={s} />}
             {tab === 'staff' && <Staff s={s} run={run} />}
             {tab === 'gear' && <Gear s={s} run={run} />}

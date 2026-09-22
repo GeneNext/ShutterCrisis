@@ -174,6 +174,31 @@ export function Briefing({ s, run, world }) {
         <div className="warnline">{hintOf(s)}</div>
       </Section>
 
+      <Section title="经营策略（开始营业前定；定价现调，分流/老板风格立即生效）">
+        <div className="row wrap">
+          <span>定价：</span>
+          {PRICING.map((p) => (
+            <Btn key={p.key} kind={s.priceTier === p.key ? 'on' : ''} onClick={() => { act(s, 'setPrice', p.key); run() }}>
+              {p.name} ×{p.mul}
+            </Btn>
+          ))}
+        </div>
+        <div className="row wrap">
+          <span>walk-in 分流：</span>
+          {WALKIN_POLICY.map((w) => (
+            <Btn key={w.key} kind={s.walkinPolicy === w.key ? 'on' : ''} onClick={() => { act(s, 'setWalkInPolicy', w.key); run() }}>
+              {w.name}
+            </Btn>
+          ))}
+        </div>
+        <div className="row wrap">
+          <span>老板：</span>
+          <Btn kind={s.boss.style === 'hands_on' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'hands_on'); run() }}>亲力亲为（可顶岗/亲自拍）</Btn>
+          <Btn kind={s.boss.style === 'delegator' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'delegator'); run() }}>甩手掌柜</Btn>
+          <span className="sub">精力 {s.boss.energy}/100</span>
+        </div>
+      </Section>
+
       <div className="brief-go">
         <Btn kind="primary" big onClick={() => run('startBusiness')}>开始营业（时段动线演出）</Btn>
         <span className="sub">例行一天 3 次点击：晨会一键 → 营业观看/干预 → 结算反思</span>

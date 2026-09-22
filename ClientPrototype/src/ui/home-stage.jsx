@@ -1,10 +1,11 @@
-﻿// 店内舞台：房间绝对定位 + 客人/员工小点实时流动 + 点房间就地升级（双点医院式「看小人」）
+﻿// 店内舞台（16:9 横屏）：员工列表左栏 + 房间绝对定位舞台 + 底部速度控制条
+// 扩店由「常驻区块」改为「舞台边缘忽闪提醒，点开看详细对照」
 import React, { useState } from 'react'
 import {
-  fmt, act, FACILITIES, TIER_NAMES, FORMS, FORM_RENOVATE, STATIONS, PRICING, WALKIN_POLICY,
+  fmt, act, FACILITIES, TIER_NAMES, FORMS, FORM_RENOVATE, STATIONS,
   expandPreview,
 } from '../game/engine.js'
-import { Bar, Chip, Section, Btn } from './components.jsx'
+import { Chip, Section, Btn } from './components.jsx'
 import { TasksHUD } from './panels.jsx'
 
 // 舞台布局（百分比）：房间即工位容器的可视化
@@ -17,22 +18,84 @@ const STAGE = {
   storage:   { x: 5,  y: 10, w: 14, h: 20, name: '储物间' },
   display:   { x: 5,  y: 34, w: 14, h: 16, name: '展示墙' },
 }
+const EXPAND_ANCHOR = {
+  right:  { x: 97, y: 34, label: '向右扩店' },
+  back:   { x: 88, y: 4,  label: '向后扩店' },
+  second: { x: 97, y: 2,  label: '加盖二楼' },
+}
 const STATION_ROOM = (key) => (STATIONS.find((x) => x.key === key) || {}).zone
 const ROOM_OF_POST = { photographer: 'studio', retoucher: 'retouch', makeup: 'makeup', service: 'reception', assistant: 'storage' }
+const POST_NAMES = { photographer: '摄影师', retoucher: '修图师', makeup: '化妆师', service: '客服', assistant: '学徒' }
 
-export function Home({ s, run, world, onManualShoot }) {
+export function Home({ s, run, world, onManualShoot, speed, setSpeed, onSkip }) {
   const business = s.phase === 'business'
   return (
     <div className="home">
+      <div className="home-top">
+        <aside className="staff-rail">
+          <StaffRail s={s} run={run} />
+        </aside>
+        <main className="stage-col">
+          <StagePlan s={s} run={run} business={business} onManualShoot={onManualShoot} />
+          <StageBar business={business} speed={speed} setSpeed={setSpeed} onSkip={onSkip} s={s} />
+        </main>
+      </div>
       <TasksHUD world={world} />
-      <StagePlan s={s} run={run} business={business} onManualShoot={onManualShoot} />
-      <StrategyPanel s={s} run={run} />
+    </div>
+  )
+}
+
+// ---------- 员工列表（舞台左栏） ----------
+function StaffRail({ s }) {
+  return (
+    <Section title="员工">
+      {s.staff.length === 0 && <div className="sub">店里没有人。</div>}
+      <div className="rail-staff">
+        {s.staff.map((e) => (
+          <div key={e.id} className={'rail-e ' + (e.dayOff ? 'off' : '')}>
+            <div className="rail-line">
+              <b>{e.name}</b>
+              <Chip kind="stage">{POST_NAMES[e.post] || e.post}</Chip>
+              <span className="rail-lv">Lv{e.skill}</span>
+            </div>
+            <div className="rail-meta">
+              {e.resting || e.energy < 30
+                ? <Chip kind="warn">休息中 {e.energy}</Chip>
+                : e.energy < 60 ? <Chip kind="warn">精力 {e.energy}</Chip> : <span className="sub">精力 {e.energy}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+// ---------- 舞台底部控制条：倍速 + 跳到结算（营业态顶栏简化后移到这里） ----------
+function StageBar({ business, speed, setSpeed, onSkip, s }) {
+  return (
+    <div className="stage-bar">
+      {business ? (
+        <>
+          <span className="stage-bar-speed">
+            {['pause', 'slow', '1x', '2x', '4x'].map((sp) => (
+              <button key={sp} className={'mini ' + (speed === sp ? 'on' : '')} onClick={() => setSpeed(sp)}>
+                {sp === 'pause' ? '暂停' : sp === 'slow' ? '慢' : sp}
+              </button>
+            ))}
+          </span>
+          <span className="stage-bar-slot"><Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip></span>
+          <span className="stage-bar-skip"><button className="mini" onClick={onSkip}>跳到结算</button></span>
+        </>
+      ) : (
+        <span className="sub">当前为非营业时段——去晨会「开始营业」。</span>
+      )}
     </div>
   )
 }
 
 function StagePlan({ s, run, business, onManualShoot }) {
   const [sel, setSel] = useState('studio')
+  const [expandDir, setExpandDir] = useState(null) // 点开扩店详情的方向
   const frame = business ? s.frames[s.frames.length - 1] : null
   // 客人小点：定位 = 所在房间中心 + 同房间索引散布；CSS transition 产生流动动画
   const dots = []
@@ -70,9 +133,17 @@ function StagePlan({ s, run, business, onManualShoot }) {
       .filter(([k]) => STATION_ROOM(k) === zoneKey)
       .reduce((a, [, v]) => a + v.queue, 0)
   }
+  // 扩店：可扩且未完成的方向 → 舞台边缘忽闪提醒；点开看详细对照
+  const expandReady = []
+  for (const dir of ['right', 'back', 'second']) {
+    const pv = expandPreview(s, dir)
+    if (pv && !pv.unavailable && s.cash >= pv.cost) expandReady.push(pv)
+  }
   return (
     <Section title="店内舞台（客人在房间间流动 · 点房间就地升级 · 点「亲自拍」上手微操）"
-      right={business ? <Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip> : <span className="sub">当前为非营业时段</span>}>
+      right={business
+        ? <Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>
+        : (expandReady.length ? <Chip kind="boss">有扩店可开工（忽闪处点开）</Chip> : <span className="sub">当前为非营业时段</span>)}>
       <div className="stage">
         {Object.entries(STAGE).map(([key, r]) => {
           const servingN = business && frame && frame.stations
@@ -109,6 +180,17 @@ function StagePlan({ s, run, business, onManualShoot }) {
             </div>
           )
         })}
+        {/* 扩店忽闪提醒（舞台对应区域 + 高亮） */}
+        {expandReady.map((pv) => {
+          const a = EXPAND_ANCHOR[pv.dir]
+          return (
+            <button key={pv.dir} className={'expand-blink ' + (expandDir === pv.dir ? 'on' : '')}
+              style={{ left: a.x + '%', top: a.y + '%', transform: 'translate(-50%,-50%)' }}
+              onClick={() => setExpandDir(expandDir === pv.dir ? null : pv.dir)} title={pv.name}>
+              扩 {pv.dir === 'right' ? '右→' : pv.dir === 'back' ? '↑后' : '↑二楼'} · ¥{fmt(pv.cost)}
+            </button>
+          )
+        })}
         {dots.map((d) => (
           <div key={d.id} className={'guest ' + (d.serving ? 'serve' : 'wait')}
             style={{ left: `calc(${d.x}% - 16px)`, top: `calc(${d.y}% - 10px)` }}
@@ -131,6 +213,11 @@ function StagePlan({ s, run, business, onManualShoot }) {
           </div>
         ))}
       </div>
+      {expandDir && (
+        <div className="expand-pop">
+          <ExpandCard s={s} run={run} dir={expandDir} onClose={() => setExpandDir(null)} />
+        </div>
+      )}
       <div className="room-detail">
         <b>{f.name}</b> <span className="sub">{TIER_NAMES[sel] ? '当前：' + TIER_NAMES[sel][lv - 1] : ''}</span>
         {lv < 5 && f.gain && f.gain[lv - 1] && (
@@ -158,53 +245,25 @@ function StagePlan({ s, run, business, onManualShoot }) {
   )
 }
 
-// 扩张对照 + 经营策略（店内设施升级已并入舞台点选）
-function StrategyPanel({ s, run }) {
+// 点开忽闪后的扩店详细对照
+function ExpandCard({ s, run, dir, onClose }) {
+  const pv = expandPreview(s, dir)
+  if (!pv) return null
   return (
-    <>
-      <Section title="店面扩张（一次性投入 / 新增日固定支出 / 回本天数 对照）">
-        <div className="expand-grid">
-          {['right', 'back', 'second'].map((dir) => {
-            const pv = expandPreview(s, dir)
-            if (!pv) return null
-            return (
-              <div key={dir} className="expand-card">
-                <b>{pv.name}</b>
-                <div className="sub">一次性 ¥{fmt(pv.cost)} · 工期 {pv.days} 天（施工期全店降效 50%）</div>
-                <div className="sub">新增日固定支出 ¥{fmt(pv.addFixedPerDay)}（租金+水电）</div>
-                <div className="sub">近 3 日均收入 ¥{fmt(pv.recentDailyIncome)}{pv.paybackDays ? ` · 预计回本 ${pv.paybackDays} 天` : ''}</div>
-                <Btn disabled={!!pv.unavailable || s.cash < pv.cost} onClick={() => { act(s, 'expandStudio', dir); run() }}>
-                  {pv.unavailable || '开工'}
-                </Btn>
-              </div>
-            )
-          })}
-        </div>
-      </Section>
-      <Section title="经营策略">
-        <div className="row wrap">
-          <span>定价：</span>
-          {PRICING.map((p) => (
-            <Btn key={p.key} kind={s.priceTier === p.key ? 'on' : ''} onClick={() => { act(s, 'setPrice', p.key); run() }}>
-              {p.name} ×{p.mul}
-            </Btn>
-          ))}
-        </div>
-        <div className="row wrap">
-          <span>walk-in 分流：</span>
-          {WALKIN_POLICY.map((w) => (
-            <Btn key={w.key} kind={s.walkinPolicy === w.key ? 'on' : ''} onClick={() => { act(s, 'setWalkInPolicy', w.key); run() }}>
-              {w.name}
-            </Btn>
-          ))}
-        </div>
-        <div className="row wrap">
-          <span>老板：</span>
-          <Btn kind={s.boss.style === 'hands_on' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'hands_on'); run() }}>亲力亲为（可顶岗/亲自拍）</Btn>
-          <Btn kind={s.boss.style === 'delegator' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'delegator'); run() }}>甩手掌柜</Btn>
-          <span className="sub">精力 {s.boss.energy}/100</span>
-        </div>
-      </Section>
-    </>
+    <div className="expand-card inline">
+      <div className="expand-head-row">
+        <b>{pv.name}</b>
+        <button className="mini" onClick={onClose}>收起 ✕</button>
+      </div>
+      <div className="sub">一次性 ¥{fmt(pv.cost)} · 工期 {pv.days} 天（施工期全店降效 50%）</div>
+      <div className="sub">新增日固定支出 ¥{fmt(pv.addFixedPerDay)}（租金+水电）</div>
+      <div className="sub">近 3 日均收入 ¥{fmt(pv.recentDailyIncome)}{pv.paybackDays ? ` · 预计回本 ${pv.paybackDays} 天` : ''}</div>
+      <div className="row" style={{ marginTop: 6 }}>
+        <Btn disabled={!!pv.unavailable || s.cash < pv.cost} onClick={() => { act(s, 'expandStudio', dir); run() }}>
+          {pv.unavailable || '开工'}
+        </Btn>
+        <span className="sub">需要店铺 {pv.needGrade}★</span>
+      </div>
+    </div>
   )
 }
