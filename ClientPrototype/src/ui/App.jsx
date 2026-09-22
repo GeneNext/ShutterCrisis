@@ -2,11 +2,12 @@
 import {
   createWorld, switchLocation, evalTasks, hintOf, locUnlocked, autoMorning,
   act, nextDay, startBusiness, stepSlot, skipDay, saveGame, loadGame, clearSave,
-  fmt, isReviewDay, nextGradeInfo,
+  fmt, isReviewDay, nextGradeInfo, strategyUnlock,
 } from '../game/engine.js'
+import { PRICING, WALKIN_POLICY } from '../game/engine.js'
 import { Briefing, Orders, Staff, Market, Report, Gear, stateName } from './panels.jsx'
 import { Home } from './home-stage.jsx'
-import { SettleLite, QuarrelModal, ManualShootModal, GradeCeremony, Inbox, Ending, MapModal, ReviewModal, ComplaintModal } from './modals.jsx'
+import { SettleLite, QuarrelModal, ManualShootModal, GradeCeremony, Inbox, Ending, MapModal, ReviewModal, ComplaintModal, BusinessStartModal } from './modals.jsx'
 import { Btn, useToasts, Chip } from './components.jsx'
 
 const SPEED_MS = { slow: 3000, '1x': 1800, '2x': 900, '4x': 450 }
@@ -35,6 +36,7 @@ export default function App() {
   const [panel, setPanel] = useState(null) // 'inbox' | 'map' | 'review' | 'brief'（可开合面板，营业暂停）
   const [manualOrder, setManualOrder] = useState(null)
   const [showDetail, setShowDetail] = useState(false) // 顶栏"详情"：慢变量(口碑/粉丝/客诉) + 升星缺口
+  const [startConfig, setStartConfig] = useState(false) // 「开始营业」前的经营策略/员工配置弹窗
   const timer = useRef(null)
   const pausedRef = useRef(false)
 
@@ -152,7 +154,10 @@ export default function App() {
 
       {/* 晨会（首日教学或「今日安排」）为全屏；其余时段为舞台+页签 */}
       {showBriefing ? (
-        <Briefing s={s} run={(a) => { run(a); if (a === 'startBusiness') setPanel(null) }} world={world} />
+        <Briefing s={s} run={(a) => {
+          if (a === 'startBusiness') { setStartConfig(true); return }
+          run(a)
+        }} world={world} />
       ) : (
         <>
           <div className="tabs">
@@ -189,6 +194,9 @@ export default function App() {
       {modalType === 'inbox' && <Inbox s={s} run={run} onClose={() => setPanel(null)} />}
       {modalType === 'map' && <MapModal world={world} onEnter={gotoLocation} onClose={() => setPanel(null)} />}
       {modalType === 'review' && <ReviewModal s={s} run={run} onClose={() => setPanel(null)} />}
+      {startConfig && (
+        <BusinessStartModal s={s} run={run} onStart={() => { run('startBusiness'); setStartConfig(false) }} />
+      )}
       {useToasts(s)}
     </div>
   )

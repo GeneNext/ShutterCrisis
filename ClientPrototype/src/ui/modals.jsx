@@ -2,6 +2,7 @@
 import { fmt } from '../game/engine.js'
 import {
   act, isReviewDay, hintOf, locUnlocked, MAP, REVIEWERS, RESCUE_DEALS, SERVICE_EVENTS,
+  PRICING, WALKIN_POLICY, POSTS, strategyUnlock, setStaffCount,
 } from '../game/engine.js'
 import { Bar, Chip, Section, Btn } from './components.jsx'
 
@@ -318,6 +319,94 @@ export function Ending({ s, onRestart }) {
           <div className="unlock-item">经营 {s.round} 天 · 交付 {s.delivered} 单 · 粉丝 {fmt(s.fans)} · 口碑 {s.reputation.toFixed(1)} 星</div>
         </div>
         <Btn kind="primary" big onClick={onRestart}>回到地图（新档）</Btn>
+      </div>
+    </div>
+  )
+}
+
+// ---------------- 开始营业配置：进入营业前弹出的经营策略 + 班底人数弹窗 ----------------
+// 新手只能选「老板亲自操刀」等最简单项；培训/花钱（trainInvest）后逐步解锁高级项。
+export function BusinessStartModal({ s, run, onStart }) {
+  const ul = strategyUnlock(s)
+  const countOf = (post) => s.staff.filter((e) => e.post === post).length
+  return (
+    <div className="overlay">
+      <div className="modal wide start-config">
+        <h2>今天怎么开张？</h2>
+        <p className="sub">经营策略一旦确认即生效；班底人数决定当天各岗位并发（动线提速）。高级项要靠培训投入解锁。</p>
+
+        <Section title="定价（影响客流、毛利与口碑涨跌）">
+          <div className="row wrap">
+            {PRICING.map((p) => {
+              const g = ul.price(p.key)
+              return (
+                <Btn key={p.key} kind={s.priceTier === p.key ? 'on' : ''} disabled={!g.ok}
+                  onClick={() => { act(s, 'setPrice', p.key); run() }} title={g.ok ? p.name : `需累计培训投入 ¥${g.need}`}>
+                  {p.name} ×{p.mul}
+                  {!g.ok && <span className="lock">🔒 培训 ¥{g.need}</span>}
+                </Btn>
+              )
+            })}
+          </div>
+          <div className="sub">已累计投入培训 ¥{fmt(ul.inv)}</div>
+        </Section>
+
+        <Section title="walk-in 随机客分流（动线压力与收益倾向）">
+          <div className="row wrap">
+            {WALKIN_POLICY.map((w) => {
+              const g = ul.walkin(w.key)
+              return (
+                <Btn key={w.key} kind={s.walkinPolicy === w.key ? 'on' : ''} disabled={!g.ok} title={w.desc + (g.ok ? '' : `（需 ¥${g.need}）`)}
+                  onClick={() => { act(s, 'setWalkInPolicy', w.key); run() }}>
+                  {w.name}
+                  {!g.ok && <span className="lock">🔒 培训 ¥{g.need}</span>}
+                </Btn>
+              )
+            })}
+          </div>
+        </Section>
+
+        <Section title="老板值班风格">
+          <div className="row wrap">
+            <Btn kind={s.boss.style === 'hands_on' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'hands_on'); run() }}>
+              亲力亲为（可顶岗/亲自拍）<span className="sub">开局可选</span>
+            </Btn>
+            {(() => {
+              const g = ul.boss('delegator')
+              return (
+                <Btn kind={s.boss.style === 'delegator' ? 'on' : ''} disabled={!g.ok}
+                  onClick={() => { act(s, 'setBossStyle', 'delegator'); run() }}>
+                  甩手掌柜{!g.ok && <span className="lock">🔒 培训 ¥{g.need}</span>}
+                </Btn>
+              )
+            })()}
+          </div>
+          <span className="sub">精力 {s.boss.energy}/100</span>
+        </Section>
+
+        <Section title="班底人数（默认 1 摄影师 + 1 化妆师）">
+          <div className="lineup">
+            {POSTS.map((p) => {
+              const n = countOf(p.post)
+              const defaultLabel = p.key === 'photographer' ? '（开局默认）' : p.key === 'makeup' ? '（开局默认）' : ''
+              return (
+                <div key={p.key} className={'lineup-row ' + (n > 0 ? 'has' : '')}>
+                  <b>{p.name}</b>{defaultLabel && <span className="sub">{defaultLabel}</span>}
+                  <div className="stepper">
+                    <button className="mini step" onClick={() => { setStaffCount(s, p.key, Math.max(0, n - 1)); run() }}>−</button>
+                    <span className="step-n">{n}</span>
+                    <button className="mini step" onClick={() => { setStaffCount(s, p.key, Math.min(6, n + 1)); run() }}>＋</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="sub">人越多当天工资越高；缺岗岗位会排队卡死动线。</div>
+        </Section>
+
+        <div className="row end start-config-go">
+          <Btn kind="primary" big onClick={onStart}>确认 · 开门营业</Btn>
+        </div>
       </div>
     </div>
   )

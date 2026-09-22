@@ -253,8 +253,8 @@ input[type="range"] { accent-color: #7a68e0; margin: 4px 0 8px; }
 .mini.eq.sel { background: #4c3f8f; border-color: #f0c46a; }
 .room-detail { background: #232030; border: 1px solid #3a3650; border-radius: 10px; padding: 10px; }
 
-/* 店内舞台（活的平面图） */
-.stage { position: relative; height: clamp(320px, 52vh, 540px); background:
+/* 店内舞台（活的平面图）：强制 16:9 横屏比例 */
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 74vh; background:
   repeating-conic-gradient(#1a1922 0% 25%, #1d1b26 0% 50%) 0 0 / 28px 28px;
   border: 1px solid #2e2b3d; border-radius: 12px; overflow: hidden; }
 .stage-room { position: absolute; background: #232030cc; border: 2px solid #3a3650; border-radius: 10px;
@@ -326,3 +326,18 @@ input[type="range"] { accent-color: #7a68e0; margin: 4px 0 8px; }
 /* 设备升级：下一级具名能力（杠杆A：收益透明，摆脱"唯一解 build"） */
 .gain-next { font-size: 11px; color: #ffd98a; background: #3a3650cc; border: 1px dashed #6a58c9;
   border-radius: 6px; padding: 2px 6px; margin-top: 4px; display: inline-block; }
+
+/* 开始营业配置弹窗 */
+.start-config h2 { margin: 0 0 4px; }
+.start-config .section { margin-top: 10px; }
+.start-config .lock { font-size: 10px; color: #f0b45c; margin-left: 4px; }
+.start-config .btn[disabled] { opacity: .55; cursor: not-allowed; }
+.start-config-go { margin-top: 14px; }
+.lineup { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 6px 0 2px; }
+.lineup-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: #1f1d29; border: 1px solid #2c2940; border-radius: 8px; padding: 6px 10px; }
+.lineup-row.has { border-color: #2f6b44; }
+.stepper { display: flex; align-items: center; gap: 8px; }
+.step { width: 26px; height: 26px; line-height: 1; font-size: 15px; font-weight: 800;
+  padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.step-n { min-width: 16px; text-align: center; font-weight: 800; color: #f0c46a; }

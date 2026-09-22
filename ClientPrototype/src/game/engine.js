@@ -172,6 +172,7 @@ export function createGame(seed = 20260914) {
     reviewDoneDay: -9, reviewTiers: [], serviceEventFallback: 0, reviewPulse: 0,
     ai: { stage: 0, subscribed: false }, irreplaceable: 10, replacePower: 0,
     adsToday: [], publishedDay: -9, consolesToday: 0, skillPoints: 0,
+    trainInvest: 0, // 累计投入进修/培训（驱动经营策略高级项解锁）
     timedEffects: {}, rescue: { entitled: false, cooldownUntil: 0, usedCount: 0 },
     boss: { energy: 100, style: 'hands_on' },
     milestones: [], awards: [], lastAwardDay: 0,
@@ -189,9 +190,9 @@ export function createGame(seed = 20260914) {
   s.pendingQuarrel = null
   s.gear = null
   gearInit(s) // 注入 14 件开局器械资产（D6，不扣现金）
-  // 开局班底：1 名成长型摄影师（教学锚）+ 1 名普通客服
+  // 开局班底：1 名成长型摄影师（教学锚）+ 1 名化妆师（新手配置弹窗可调）
   hireGenerated(s, 'photographer', 'growth'); s.staff[0].skill = 2
-  hireGenerated(s, 'service', 'normal')
+  hireGenerated(s, 'makeup', 'normal')
   refreshCandidates(s)
   genIntake(s)
   return s
@@ -213,6 +214,18 @@ function makeStaff(s, post, talent, rnd) {
 function hireGenerated(s, post, talent) {
   const rnd = mulberry32((s.seed + s.staffSeq * 131 + s.round * 17) >>> 0)
   s.staff.push(makeStaff(s, post, talent, rnd))
+}
+// 开局配置弹窗用：把某岗位的在编人数校准到 count（多退少补）。
+// 下班顺手把其余岗位的多余班底一起补足，保证动线不卡壳。
+export function setStaffCount(s, post, count) {
+  let cur = s.staff.filter((e) => e.post === post).length
+  while (cur < count) { hireGenerated(s, post, 'normal'); cur++ }
+  while (cur > count) {
+    const idx = s.staff.findIndex((e) => e.post === post)
+    if (idx < 0) break
+    s.staff.splice(idx, 1); cur--
+  }
+  return { ok: true }
 }
 export function refreshCandidates(s) {
   const rnd = mulberry32((s.seed + 7777 + s.round * 31) >>> 0)
@@ -450,6 +463,7 @@ const ACTIONS = {
     if (e.skill < 2) return { ok: false, err: '技能 ≥2 才能进修' }
     if (s.cash < QUAL_COST) return { ok: false, err: '现金不足' }
     s.cash -= QUAL_COST
+    s.trainInvest += QUAL_COST
     e.quals.push(qual)
     restage(s, e)
     toast(s, 'buy', `${e.name} 修得「${qual}」专精${e.stage !== 'rookie' ? '，晋升' + find(STAFF_STAGES, e.stage).name : ''}`, -QUAL_COST)
@@ -462,6 +476,7 @@ const ACTIONS = {
     const cost = 500 * e.skill
     if (s.cash < cost) return { ok: false, err: '现金不足' }
     s.cash -= cost
+    s.trainInvest += cost
     e.skill++
     restage(s, e)
     toast(s, 'buy', `${e.name} 技能进修 → ${e.skill} 级`, -cost)
@@ -1501,6 +1516,29 @@ export function nextGradeInfo(s) {
   const notOk = dims.filter((d) => !d.ok)
   const bottleneck = notOk.length ? notOk.reduce((a, b) => (a.pct <= b.pct ? a : b)) : null
   return { grade: next.grade, name: next.name, plaque: next.plaque, dims, allOk: dims.every((d) => d.ok), bottleneck }
+}
+// ---------------- 经营策略解锁（新手只能选老板亲自操刀等最基础项；培训/花钱后逐步解锁高级项） ----------------
+// 投入越多（trainInvest），越能解锁高定价 / 更野的分流 / 甩手掌柜。
+const STRATEGY_GATES = {
+  // 定价档：key -> { needTrain }（0 表示开局即解锁）
+  price: { low: 0, normal: 0, mid: 800, high: 2400, lux: 5000 },
+  // walk-in 分流
+  walkin: { appoint: 1200, balanced: 0, open: 1200 },
+  // 老板风格
+  boss: { hands_on: 0, delegator: 2000 },
+}
+export function strategyUnlock(s) {
+  const inv = s.trainInvest || 0
+  const gate = (category, key) => {
+    const need = STRATEGY_GATES[category][key]
+    return need === 0 || inv >= need ? { ok: true, need: 0 } : { ok: false, need }
+  }
+  return {
+    inv,
+    price: (key) => gate('price', key),
+    walkin: (key) => gate('walkin', key),
+    boss: (key) => gate('boss', key),
+  }
 }
 // 目录再导出（UI 统一从引擎取）
 export {
