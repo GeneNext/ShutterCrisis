@@ -9,6 +9,7 @@ import {
   GEAR, gearMarketValue,
 } from '../game/engine.js'
 import { Bar, Chip, Section, Btn, TalentChip, StageChip } from './components.jsx'
+import { I, LOC_I, ZONE_I, POST_I, ORDER_I, CROWD_I, PRICE_I, WALKIN_I, BOSS_I, CHANNEL_I } from './icons.js'
 
 const CROWD_NAMES = ['街坊散客', '大众写真客', '品质家庭客', '企业/专业客', '艺人团队']
 const FORM_ZONE_NAMES = { makeup: '化妆区', reception: '接待区', studio: '棚拍区', select: '选片（接待区）', retouch: '后期区', rest: '休息区' }
@@ -26,9 +27,9 @@ export function TasksHUD({ world }) {
   const stars = g.stars || 0
   const next = loc.tasks.find((t) => t.star > stars)
   return (
-    <Section title={`本店任务 · ${loc.name}（${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}）`}
-      right={<span className="sub">达成 1 星解锁地图下一地点</span>}>
-      {!next && <div className="sub">本地点三星全达成——打开地图去下一站，或继续刷传奇里程碑。</div>}
+    <Section title={`${LOC_I[g.locKey] || I.map} 本店任务 · ${loc.name}（${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}）`}
+      right={<span className="sub">⭐1 解锁下一地点</span>}>
+      {!next && <div className="sub">三星全达成——去地图开启下一站，或继续冲传奇。</div>}
       {next && next.items.map((it, i) => {
         const [cur, need] = it.progress(g)
         return (
@@ -63,21 +64,21 @@ export function Briefing({ s, run, world }) {
       <TasksHUD world={world} />
       <div className="brief-head">
         <div>
-          <h2>晨会 · 第 {s.round + 1} 天</h2>
-          <div className="sub">{grade ? `距 ${grade.plaque}` : '已至传奇影楼'} · 今日主力客群：{CROWD_NAMES[Math.min(4, s.grade - 1)]}</div>
+          <h2>☕ 晨会 · 第 {s.round + 1} 天</h2>
+          <div className="sub">{grade ? `距 ${grade.plaque}` : '已至传奇影楼'} · 主力客群 {CROWD_I.street} {CROWD_NAMES[Math.min(4, s.grade - 1)]}</div>
         </div>
         <div className="brief-cash">
-          <div className="big">¥{fmt(s.cash)}</div>
-          <div className="sub">现金流状态：{stateName(s)}</div>
+          <div className="big">{I.cash}¥{fmt(s.cash)}</div>
+          <div className="sub">{stateName(s)}</div>
         </div>
       </div>
 
       {grade && (
-        <Section title={`距下一星：${grade.plaque}（五维门槛，缺一不可）`}>
+        <Section title={`${I.upgrade} 距下一星：${grade.plaque}`}>
           <div className="dims">
             {grade.dims.map((d, i) => (
               <div key={i} className={'dim ' + (d.ok ? 'ok' : 'no')}>
-                <Chip kind={d.ok ? 'ok' : 'warn'}>{d.label}</Chip>
+                <Chip kind={d.ok ? 'ok' : 'warn'}>{d.ok ? I.ok : I.lock} {d.label}</Chip>
                 <span>{d.text}</span>
               </div>
             ))}
@@ -85,20 +86,20 @@ export function Briefing({ s, run, world }) {
         </Section>
       )}
 
-      <Section title="今日预约池（客人即可视化现金流：每张预约都是一笔待变现的钱）"
-        right={<Btn onClick={acceptAll}>一键接单并自动排程（推荐）</Btn>}>
+      <Section title={`${I.cash} 今日预约 · 张张都是钱`}
+        right={<Btn onClick={acceptAll}>{I.fast} 一键接单排程</Btn>}>
         <div className="appt-grid">
           {s.appointments.map((a) => {
             const miss = requirementMissing(s, ORDERS.find((o) => o.key === a.orderKey))
             return (
               <div key={a.id} className={'appt ' + (a.state === 'accepted' ? 'on' : '')}>
                 <div className="appt-name">{a.name}{a.retained ? ' · 回头客' : ''}</div>
-                <div className="appt-order">{ORDERS.find((o) => o.key === a.orderKey).name}</div>
-                <div className="appt-price">¥{fmt(a.price)}</div>
-                <div className="appt-meta">{CROWDS[a.crowdIdx].name} · 占 {a.slots} 时段</div>
+                <div className="appt-order">{ORDER_I[a.orderKey]} {ORDERS.find((o) => o.key === a.orderKey).name}</div>
+                <div className="appt-price">{I.cash}¥{fmt(a.price)}</div>
+                <div className="appt-meta">{CROWD_I[CROWDS[a.crowdIdx].key] || CROWD_I.street} {CROWDS[a.crowdIdx].name} · 占 {a.slots} 时段</div>
                 {a.appointment && (
                   <div className="appt-deposit">
-                    定金 ¥{fmt(a.deposit || 0)} 已收（爽约不退）· 爽约风险 {riskLabel(a.noShowP)}
+                    定金 {I.cash}¥{fmt(a.deposit || 0)} · 爽约风险 {riskLabel(a.noShowP)}
                   </div>
                 )}
                 {miss
@@ -116,70 +117,70 @@ export function Briefing({ s, run, world }) {
           })}
         </div>
         <div className="sub" style={{ marginTop: 8 }}>
-          预计 walk-in 散客 ~{s.walkinForecast} 组 · 当前分流「{WALKIN_POLICY.find((w) => w.key === s.walkinPolicy).name}」
+          {I.slot} walk-in 散客 ~{s.walkinForecast} 组 · 分流「{WALKIN_I[s.walkinPolicy] || ''}{WALKIN_POLICY.find((w) => w.key === s.walkinPolicy).name}」
         </div>
       </Section>
 
-      <Section title="员工预警（精力 / 去留）">
+      <Section title={`${I.warn} 员工预警（精力 / 去留）`}>
         {s.staff.length === 0 && <div className="sub">店里没有人。</div>}
         {s.staff.map((e) => (
           <div key={e.id} className="line">
-            <b>{e.name}</b> <Chip>{POSTS.find((p) => p.key === e.post).name}</Chip>
-            {e.energy < 40 && <Chip kind="warn">精力 {e.energy}</Chip>}
-            {e.energy < 40 && <Btn onClick={() => { act(s, 'restStaff', e.id); run() }}>今日排休</Btn>}
+            <b>{POST_I[e.post] || ''} {e.name}</b> <Chip>{POSTS.find((p) => p.key === e.post).name}</Chip>
+            {e.energy < 40 && <Chip kind="warn">{I.warn} 精力 {e.energy}</Chip>}
+            {e.energy < 40 && <Btn onClick={() => { act(s, 'restStaff', e.id); run() }}>{I.rest} 今日排休</Btn>}
             {stay.filter((r) => r.name === e.name && r.will < 60).map((r, i) => (
               <span key={i} className="row">
                 <Chip kind="warn">去留意愿 {r.will}：{r.text}</Chip>
-                <Btn onClick={() => { act(s, 'retainStaff', e.id); run() }}>加薪 20% 挽留</Btn>
+                <Btn onClick={() => { act(s, 'retainStaff', e.id); run() }}>{I.retain} 加薪 20% 挽留</Btn>
               </span>
             ))}
           </div>
         ))}
         {(s.complaintsBacklog || 0) >= 2 && (
           <div className="line">
-            <Chip kind="warn">客诉积压 {s.complaintsBacklog} 起</Chip>
-            <span className="sub">建议招募客服，或升接待区（前台每 2 级分担 1 名客服职能）</span>
+            <Chip kind="warn">{I.complaint} 客诉积压 {s.complaintsBacklog} 起</Chip>
+            <span className="sub">建议招募客服或升接待区（前台每 2 级分担 1 名客服）</span>
           </div>
         )}
         <div className="row" style={{ marginTop: 6 }}>
-          <Btn onClick={() => { act(s, 'organizeTeamBuilding'); run() }}>团建（全员精力 +30，意愿 +）</Btn>
+          <Btn onClick={() => { act(s, 'organizeTeamBuilding'); run() }}>{I.teambuild} 团建（全员精力 +30）</Btn>
           {warn.length === 0 && stay.every((r) => r.will >= 60) && <span className="sub">全员状态正常</span>}
         </div>
       </Section>
 
-      <Section title="现金流预测">
+      <Section title={`${I.cash} 现金流预测`}>
         <div className="cols">
-          <div>近 3 日均收入：<b>¥{fmt(avgIncome)}</b></div>
-          <div>今日固定支出：<b>¥{fmt(fb.total)}</b></div>
+          <div>近 3 日均收入：<b>{I.cash}¥{fmt(avgIncome)}</b></div>
+          <div>今日固定支出：<b>{I.cash}¥{fmt(fb.total)}</b></div>
           <div className={avgIncome - fb.total >= 0 ? 'good' : 'bad'}>
             预计净流：<b>{avgIncome - fb.total >= 0 ? '+' : ''}¥{fmt(avgIncome - fb.total)}</b>
           </div>
         </div>
-        {fb.total > avgIncome && <div className="warnline">固定支出高于近期收入：危险态可接「救命大单」（收件箱），或削减广告与人力。</div>}
+        {fb.total > avgIncome && <div className="warnline">{I.danger} 固定支出高于收入：危险态接「救命大单」或削减广告/人力。</div>}
       </Section>
 
-      <Section title="今日广告（可选）">
+      <Section title={`${I.fans} 今日广告（可选）`}>
         <div className="row wrap">
           {CHANNELS.filter((c) => s.grade >= c.grade).map((c) => (
             <Btn key={c.key} kind={s.adsToday.includes(c.key) ? 'on' : ''}
               onClick={() => { act(s, 'runAd', c.key); run() }}>
-              {c.name} ¥{c.cost}（粉丝+{c.fans}）
+              {CHANNEL_I[c.key] || ''} {c.name} ¥{c.cost}（{I.fans}+{c.fans}）
             </Btn>
           ))}
-          <span className="sub">品牌调性倾向：{toneOf(s)}</span>
+          <span className="sub">调性倾向：{toneOf(s)}</span>
         </div>
       </Section>
 
-      <Section title="今日提示（不打断流程，仅供参考）">
+      <Section title={`${I.detail} 今日提示`}>
         <div className="warnline">{hintOf(s)}</div>
       </Section>
 
-      <Section title="经营策略（开始营业前定；定价现调，分流/老板风格立即生效）">
+      <Section title={`${I.boss} 经营策略（开张前定）`}>
         <div className="row wrap">
           <span>定价：</span>
           {PRICING.map((p) => (
             <Btn key={p.key} kind={s.priceTier === p.key ? 'on' : ''} onClick={() => { act(s, 'setPrice', p.key); run() }}>
-              {p.name} ×{p.mul}
+              {PRICE_I[p.key] || ''} {p.name} ×{p.mul}
             </Btn>
           ))}
         </div>
@@ -187,21 +188,21 @@ export function Briefing({ s, run, world }) {
           <span>walk-in 分流：</span>
           {WALKIN_POLICY.map((w) => (
             <Btn key={w.key} kind={s.walkinPolicy === w.key ? 'on' : ''} onClick={() => { act(s, 'setWalkInPolicy', w.key); run() }}>
-              {w.name}
+              {WALKIN_I[w.key] || ''} {w.name}
             </Btn>
           ))}
         </div>
         <div className="row wrap">
           <span>老板：</span>
-          <Btn kind={s.boss.style === 'hands_on' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'hands_on'); run() }}>亲力亲为（可顶岗/亲自拍）</Btn>
-          <Btn kind={s.boss.style === 'delegator' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'delegator'); run() }}>甩手掌柜</Btn>
+          <Btn kind={s.boss.style === 'hands_on' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'hands_on'); run() }}>{I.boss} 亲力亲为</Btn>
+          <Btn kind={s.boss.style === 'delegator' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'delegator'); run() }}>{I.owner} 甩手掌柜</Btn>
           <span className="sub">精力 {s.boss.energy}/100</span>
         </div>
       </Section>
 
       <div className="brief-go">
-        <Btn kind="primary" big onClick={() => run('startBusiness')}>开始营业（时段动线演出）</Btn>
-        <span className="sub">例行一天 3 次点击：晨会一键 → 营业观看/干预 → 结算反思</span>
+        <Btn kind="primary" big onClick={() => run('startBusiness')}>{I.start} 开始营业</Btn>
+        <span className="sub">每天 3 步：晨会 → 营业 → 结算</span>
       </div>
     </div>
   )
@@ -223,7 +224,7 @@ export function Orders({ s }) {
   const total = s.slotsTotal
   return (
     <div className="orders">
-      <Section title={`今日排期（${total} 时段 × 拍摄并发 ${Math.max(1, stationCapacity(s, 'shoot'))}）`}>
+      <Section title={`${I.slot} 今日排期（${total} 时段 × 并发 ${Math.max(1, stationCapacity(s, 'shoot'))}）`}>
         <div className="slots">
           {Array.from({ length: total }).map((_, slot) => {
             const here = s.appointments.filter((a) => a.state === 'accepted' && s.schedule[a.id] && s.schedule[a.id].startSlot === slot)
@@ -238,14 +239,14 @@ export function Orders({ s }) {
           })}
         </div>
       </Section>
-      <Section title="进行中的订单（动线位置实时更新）">
+      <Section title={`${I.detail} 进行中的订单`}>
         {s.activeOrders.length === 0 && <div className="sub">当前没有在店客人。</div>}
         <div className="appt-grid">
           {s.activeOrders.map((o) => (
             <div key={o.id} className="appt on">
               <div className="appt-name">{o.name}</div>
-              <div className="appt-order">{ORDERS.find((x) => x.key === o.orderKey).name}</div>
-              <div className="appt-price">¥{fmt(o.price)}</div>
+              <div className="appt-order">{ORDER_I[o.orderKey]} {ORDERS.find((x) => x.key === o.orderKey).name}</div>
+              <div className="appt-price">{I.cash}¥{fmt(o.price)}</div>
               <div className="sub">当前：{o.station}（等 {o.waitSlots} 时段）</div>
               <Bar v={Math.max(0, o.satisfaction) * 100} color={o.satisfaction > 0.5 ? 'green' : 'red'} label={`满意度 ${(o.satisfaction * 100) | 0}%`} />
             </div>
@@ -261,8 +262,8 @@ export function Staff({ s, run }) {
   const cap = [0, 2, 4, 6, 8, 10][s.grade]
   return (
     <div className="staff-page">
-      <Section title={`花名册（${s.staff.length}/${cap} 人，升星扩编）`}
-        right={<Btn onClick={() => { act(s, 'organizeTeamBuilding'); run() }}>团建</Btn>}>
+      <Section title={`${I.hire} 花名册（${s.staff.length}/${cap} 人，升星扩编）`}
+        right={<Btn onClick={() => { act(s, 'organizeTeamBuilding'); run() }}>{I.teambuild} 团建</Btn>}>
         <div className="staff-grid">
           {s.staff.map((e) => {
             const trait = TRAITS.find((t) => t.key === e.trait)
@@ -270,50 +271,50 @@ export function Staff({ s, run }) {
             return (
               <div key={e.id} className="staff-card">
                 <div className="staff-head">
-                  <b>{e.name}</b>
+                  <b>{POST_I[e.post] || ''} {e.name}</b>
                   <Chip>{POSTS.find((p) => p.key === e.post).name}</Chip>
-                  <Chip kind="stage">Lv {e.skill} / {e.potential}</Chip>
+                  <Chip kind="stage">{I.upgrade} Lv {e.skill} / {e.potential}</Chip>
                   <TalentChip talent={e.talent} />
                   <StageChip stage={e.stage} />
                 </div>
-                <div className="sub">特质：{trait.name}（{trait.flavor}）· 日薪 ¥{e.wage} · 类型决定工位，等级决定质量上限</div>
-                <Bar v={e.skill} max={e.potential} color="blue" label={`等级 ${e.skill}/${e.potential}（成长上限）`} />
+                <div className="sub">特质 {trait.name}（{trait.flavor}）· 日薪 {I.cash}¥{e.wage}</div>
+                <Bar v={e.skill} max={e.potential} color="blue" label={`等级 ${e.skill}/${e.potential}`} />
                 <Bar v={e.energy} color={e.energy > 40 ? 'green' : 'red'} label={`精力 ${e.energy}`} />
                 {leave && <Bar v={leave.will} color={leave.will >= 60 ? 'green' : 'red'} label={`去留意愿 ${leave.will}：${leave.text}`} />}
                 <div className="row wrap">
-                  {e.quals.map((q) => <Chip key={q} kind="ok">专精·{q}</Chip>)}
+                  {e.quals.map((q) => <Chip key={q} kind="ok">{I.ok} 专精·{q}</Chip>)}
                   {e.talent === 'growth' || e.quals.length === 0
                     ? QUALS.filter((q) => !e.quals.includes(q)).map((q) => (
-                      <button key={q} className="mini" onClick={() => { act(s, 'trainStaff', e.id, q); run() }}>培训 {q}</button>
+                      <button key={q} className="mini" onClick={() => { act(s, 'trainStaff', e.id, q); run() }}>{I.train} {q}</button>
                     ))
                     : <span className="sub">普通员工至多 1 门专精</span>}
-                  <button className="mini" onClick={() => { act(s, 'courseStaff', e.id); run() }} title="花钱涨技能，成长型可到 5 级">技能进修</button>
-                  <button className="mini" onClick={() => { act(s, 'consoleStaff', e.id); run() }}>安抚</button>
-                  {leave && leave.will < 60 && <button className="mini warn" onClick={() => { act(s, 'retainStaff', e.id); run() }}>加薪挽留</button>}
-                  <button className="mini" onClick={() => { act(s, 'restStaff', e.id); run() }}>排休</button>
-                  <button className="mini danger" onClick={() => { act(s, 'fireStaff', e.id); run() }}>解雇</button>
+                  <button className="mini" onClick={() => { act(s, 'courseStaff', e.id); run() }} title="花钱涨技能，成长型可到 5 级">{I.course} 进修</button>
+                  <button className="mini" onClick={() => { act(s, 'consoleStaff', e.id); run() }}>{I.soothe} 安抚</button>
+                  {leave && leave.will < 60 && <button className="mini warn" onClick={() => { act(s, 'retainStaff', e.id); run() }}>{I.retain} 挽留</button>}
+                  <button className="mini" onClick={() => { act(s, 'restStaff', e.id); run() }}>{I.rest} 排休</button>
+                  <button className="mini danger" onClick={() => { act(s, 'fireStaff', e.id); run() }}>{I.fire} 解雇</button>
                 </div>
               </div>
             )
           })}
         </div>
       </Section>
-      <Section title="人才市场（成长型稀缺：遇到了就是机会；招聘费 ×2）">
+      <Section title={`${I.hire} 人才市场（成长型稀缺 · 招聘费 ×2）`}>
         <div className="staff-grid">
           {s.candidates.map((c) => (
             <div key={c.id} className="staff-card">
               <div className="staff-head">
-                <b>{c.name}</b>
+                <b>{POST_I[c.post] || ''} {c.name}</b>
                 <Chip>{POSTS.find((p) => p.key === c.post).name}</Chip>
                 <TalentChip talent={c.talent} />
               </div>
-              <div className="sub">类型：{POSTS.find((p) => p.key === c.post).name} · 等级 Lv {c.skill}（上限 {c.potential}）· 日薪 ¥{c.wage} · 特质 {TRAITS.find((t) => t.key === c.trait).name}</div>
+              <div className="sub">Lv {c.skill}（上限 {c.potential}）· 日薪 {I.cash}¥{c.wage} · 特质 {TRAITS.find((t) => t.key === c.trait).name}</div>
               <Btn onClick={() => { act(s, 'hireStaff', c.id); run() }}>
-                招聘（¥{fmt(POSTS.find((p) => p.key === c.post).hire * (c.talent === 'growth' ? 2 : 1))}）
+                {I.hire} 招聘（{I.cash}¥{fmt(POSTS.find((p) => p.key === c.post).hire * (c.talent === 'growth' ? 2 : 1))}）
               </Btn>
             </div>
           ))}
-          <Btn onClick={() => { refreshCandidates(s); run() }}>换一批（明晨也会自动刷新）</Btn>
+          <Btn onClick={() => { refreshCandidates(s); run() }}>🔄 换一批（明晨自动刷新）</Btn>
         </div>
       </Section>
     </div>
@@ -325,7 +326,7 @@ export function Market({ s, run }) {
   const latest = s.reportHistory[0]
   return (
     <div className="market">
-      <Section title={`线上账号（粉丝 ${fmt(s.fans)} · 品牌调性：${toneOf(s)}）`}>
+      <Section title={`📱 线上账号（${I.fans}粉丝 {fmt(s.fans)} · 调性：${toneOf(s)}）`}>
         <div className="row wrap">
           {CONTENT_TOPICS.map((t) => <Chip key={t.key}>{t.name} ×{t.mul}</Chip>)}
         </div>
@@ -341,11 +342,11 @@ export function Market({ s, run }) {
             const t = document.getElementById('pub-topic').value
             act(s, 'publishContent', parseInt(w, 10), t); run()
           }} disabled={s.publishedDay === s.round + 1 || s.works.length === 0}>
-            {s.publishedDay === s.round + 1 ? '今天已发（每天 1 条）' : '发布内容'}
+            {s.publishedDay === s.round + 1 ? '📤 今天已发' : '📤 发布内容'}
           </Btn>
         </div>
       </Section>
-      <Section title="AI 冲击（不可替代度 vs AI 替代能力）">
+      <Section title="🤖 AI 冲击（不可替代度 vs 替代能力）">
         <div className="ai-line">
           {AI_STAGES.map((a, i) => <Chip key={a.name} kind={i <= s.ai.stage ? 'stage' : ''}>{a.name}</Chip>)}
         </div>
@@ -354,25 +355,25 @@ export function Market({ s, run }) {
           <div>不可替代度 <b>{s.irreplaceable}</b></div>
           <div>AI 替代能力 <b>{s.replacePower}</b></div>
           <div className={s.irreplaceable > s.replacePower ? 'good' : 'bad'}>
-            {s.irreplaceable > s.replacePower ? '你在前面（真实体验是护城河）' : '正在被 AI 卷（动线满意度与关系是解法）'}
+            {s.irreplaceable > s.replacePower ? '你在前面：真实体验是护城河' : '被 AI 卷：动线满意度与关系是解法'}
           </div>
         </div>
         <Btn kind={s.ai.subscribed ? 'on' : ''} onClick={() => { act(s, 'adoptAI', !s.ai.subscribed); run() }}>
-          {s.ai.subscribed ? `取消 AI 修图订阅（¥${AI_SUB_COST}/天）` : `订阅 AI 修图（¥${AI_SUB_COST}/天：自动化但伤不可替代度）`}
+          {s.ai.subscribed ? `✂️ 取消 AI 修图订阅（¥${AI_SUB_COST}/天）` : `🤖 订阅 AI 修图（¥${AI_SUB_COST}/天：自动化但伤不可替代度）`}
         </Btn>
       </Section>
-      <Section title="广告渠道（今日已选，明晨可再投）">
+      <Section title="📣 广告渠道（今日已选，明晨可再投）">
         <div className="row wrap">
           {CHANNELS.map((c) => (
             <span key={c.key} className="row">
               <Btn kind={s.adsToday.includes(c.key) ? 'on' : ''} disabled={s.grade < c.grade}
                 onClick={() => { act(s, 'runAd', c.key); run() }}>
-                {c.name}{s.grade < c.grade ? `（${c.grade}★）` : ` ¥${c.cost}`}
+                {CHANNEL_I[c.key] || ''} {c.name}{s.grade < c.grade ? `（${c.grade}★）` : ` ¥${c.cost}`}
               </Btn>
             </span>
           ))}
         </div>
-        {latest && <div className="sub">昨日：接待 {latest.served} · 入账 ¥{fmt(latest.income)} · 流失 ¥{fmt(latest.loss)}</div>}
+        {latest && <div className="sub">昨日：接待 {latest.served} · 入账 {I.cash}¥{fmt(latest.income)} · 流失 ¥{fmt(latest.loss)}</div>}
       </Section>
     </div>
   )
@@ -382,7 +383,7 @@ export function Market({ s, run }) {
 export function Report({ s, run }) {
   return (
     <div className="report">
-      <Section title="日报表（最近 14 天）">
+      <Section title="📊 日报表（最近 14 天）">
         <table className="tbl">
           <thead><tr><th>天</th><th>收入</th><th>固定</th><th>变动</th><th>净流</th><th>余额</th><th>接待</th><th>流失</th><th>留存</th><th>传播</th></tr></thead>
           <tbody>
@@ -396,7 +397,7 @@ export function Report({ s, run }) {
           </tbody>
         </table>
       </Section>
-      <Section title="周反思（每 7 天：这周哪里在漏钱）">
+      <Section title="📈 周反思（每 7 天：钱漏在哪）">
         {s.weeklyReports.length === 0 && <div className="sub">第一个周反思将在第 7 天结算后出现。</div>}
         {s.weeklyReports.slice(0, 4).map((w) => (
           <div key={w.day} className="week-card">
@@ -413,16 +414,16 @@ export function Report({ s, run }) {
           </div>
         ))}
       </Section>
-      <Section title="里程碑 / 年度评奖 / 传奇计数">
+      <Section title="🏆 里程碑 / 年度评奖 / 传奇计数">
         <div className="row wrap">
           {s.milestones.length === 0 && <span className="sub">暂无里程碑</span>}
-          {s.milestones.map((m) => <Chip key={m} kind="ok">{MILESTONE_NAME(m)}</Chip>)}
+          {s.milestones.map((m) => <Chip key={m} kind="ok">{I.ok} {MILESTONE_NAME(m)}</Chip>)}
         </div>
         <div className="row wrap">
-          {s.awards.map((a) => <Chip key={a} kind="stage">{a}</Chip>)}
+          {s.awards.map((a) => <Chip key={a} kind="stage">{I.award} {a}</Chip>)}
         </div>
-        <div className="sub">收店退休随时可做（单机原型没有胜利条件，玩到不想玩为止）。</div>
-        <Btn kind="danger" onClick={() => { act(s, 'retire'); run() }}>收店退休（结局）</Btn>
+        <div className="sub">单机原型无胜利条件，玩到不想玩为止。</div>
+        <Btn kind="danger" onClick={() => { act(s, 'retire'); run() }}>{I.retire} 收店退休（结局）</Btn>
       </Section>
     </div>
   )
@@ -457,16 +458,16 @@ export function Gear({ s, run }) {
   const dep = fixedCostBreakdown(s).gearDep
   return (
     <div className="gear">
-      <Section title={`器械库 · 当前市值 ¥${fmt(pnl.market)} · 成本 ¥${fmt(pnl.invested)}`}>
+      <Section title={`🎥 器械库 · 市值 ${I.cash}¥${fmt(pnl.market)}`}>
         <div className="cols">
           <div>在库 <b>{pnl.count} 件</b></div>
           <div className={pnl.pnl >= 0 ? 'good' : 'bad'}>{pnl.pnl >= 0 ? '账面 +' : '账面 '}{fmt(pnl.pnl)}</div>
-          <div>每日折旧 <b className="bad">¥{fmt(dep)}/天</b></div>
+          <div>每日折旧 <b className="bad">{I.cash}¥{fmt(dep)}/天</b></div>
           <div>计入估值 <b>×0.7</b></div>
         </div>
       </Section>
 
-      <Section title="我的器械（可卖出回笼现金）">
+      <Section title="🎥 我的器械（可卖出回笼现金）">
         {(s.gear && s.gear.owned.slice().reverse().map((it) => {
           const m = geaModel(s, it)
           const mv = gearValue(s, m)
@@ -474,16 +475,16 @@ export function Gear({ s, run }) {
             <div key={it.uid} className="row gear-item">
               <div style={{ flex: 1 }}>
                 <b>{m.name}</b>
-                <span className="sub"> 买入 ¥{fmt(it.buyPrice)} · 现价 ¥{fmt(mv)}</span>
+                <span className="sub"> 买入 {I.cash}¥{fmt(it.buyPrice)} · 现价 {I.cash}¥{fmt(mv)}</span>
               </div>
-              <Btn kind="warn" onClick={() => { act(s, 'sellGear', it.uid); run() }}>卖出 ¥{fmt(Math.round(mv * m.keep))}</Btn>
+              <Btn kind="warn" onClick={() => { act(s, 'sellGear', it.uid); run() }}>卖出 {I.cash}¥{fmt(Math.round(mv * m.keep))}</Btn>
             </div>
           )
         }))}
         {(!s.gear || s.gear.owned.length === 0) && <div className="sub">器械库空——去「选购器械」补几件主力干活机。</div>}
       </Section>
 
-      <Section title="选购器械（现价波动，买后占用现金 + 每日折旧）">
+      <Section title="🛒 选购器械（现价波动 · 占现金 · 每日折旧）">
         {Object.keys(GEAR).map((cat) => (
           <div key={cat} style={{ marginBottom: 6 }}>
             <b>{GEAR_CAT_NAMES[cat]}</b>
@@ -507,7 +508,7 @@ export function Gear({ s, run }) {
         ))}
       </Section>
 
-      <Section title="价格走势（近 14 天）" right={<span className="sub">区间 = 基准价 50%~150%</span>}>
+      <Section title="📈 价格走势（近 14 天）" right={<span className="sub">区间 = 基准价 50%~150%</span>}>
         {Object.keys(GEAR).map((cat) => {
           const seen = new Set()
           const rows = ((s.gear && s.gear.owned) || []).filter((it) => {

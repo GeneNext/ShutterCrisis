@@ -9,15 +9,16 @@ import { Briefing, Orders, Staff, Market, Report, Gear, stateName } from './pane
 import { Home } from './home-stage.jsx'
 import { SettleLite, QuarrelModal, ManualShootModal, GradeCeremony, Inbox, Ending, MapModal, ReviewModal, ComplaintModal, BusinessStartModal } from './modals.jsx'
 import { Btn, useToasts, Chip } from './components.jsx'
+import { I, LOC_I } from './icons.js'
 
 const SPEED_MS = { slow: 3000, '1x': 1800, '2x': 900, '4x': 450 }
 const TABS = [
-  { key: 'home', name: '门店' },
-  { key: 'orders', name: '订单' },
-  { key: 'staff', name: '员工' },
-  { key: 'gear', name: '器械' },
-  { key: 'market', name: '线上' },
-  { key: 'report', name: '报表' },
+  { key: 'home', name: '🏠 门店' },
+  { key: 'orders', name: '📋 订单' },
+  { key: 'staff', name: '👥 员工' },
+  { key: 'gear', name: '🎥 器械' },
+  { key: 'market', name: '📱 线上' },
+  { key: 'report', name: '📊 报表' },
 ]
 const PLAQUES = ['1★ 街角小店', '2★ 口碑相馆', '3★ 社区名店', '4★ 城市名店', '5★ 传奇影楼']
 const LOC_NAMES = { street: '老街影像社', campus: '大学城快闪店', mall: '商圈旗舰店', lot: '影视基地棚', fashion: '时装周馆' }
@@ -113,12 +114,12 @@ export default function App() {
               <button className="plaque map-btn" onClick={() => setPanel('map')} title="打开地图，切换地点">
                 {PLAQUES[s.grade - 1]}
               </button>
-              <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>¥{fmt(s.cash)}</div>
+              <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>{I.cash}¥{fmt(s.cash)}</div>
             </div>
             <div className="top-mini-right">
-              <button className="mini" onClick={() => { skipDay(s); evalTasks(world); sync() }}>结算</button>
+              <button className="mini" onClick={() => { skipDay(s); evalTasks(world); sync() }}>{I.settle} 结算</button>
               <button className={'mini ' + (serviceCount + rescueCount > 0 ? 'alert' : '')} onClick={() => setPanel(panel === 'inbox' ? null : 'inbox')}>
-                收件箱{serviceCount + rescueCount > 0 ? ` (${serviceCount + rescueCount})` : ''}
+                {I.inbox} 收件箱{serviceCount + rescueCount > 0 ? ` ${serviceCount + rescueCount}` : ''}
               </button>
             </div>
           </>
@@ -126,24 +127,24 @@ export default function App() {
           <>
             <div className="brand">
               <button className="plaque map-btn" onClick={() => setPanel('map')} title="打开地图，切换地点">
-                {PLAQUES[s.grade - 1]}
+                {LOC_I[s.locKey] || I.map} {PLAQUES[s.grade - 1]}
               </button>
               <span className="sub">{locName} · 第 {s.round + 1} 天{'★'.repeat(Math.min(3, world.stars[s.locKey] || 0))}</span>
             </div>
             <div className="top-stats">
-              <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>¥{fmt(s.cash)}</div>
+              <div key={s.cash} className={'cash ' + (s.cash < 0 ? 'bad' : '')}>{I.cash}¥{fmt(s.cash)}</div>
               <Chip kind={cashKind(s)}>{stateName(s)}</Chip>
-              {inBusiness && <Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>}
+              {inBusiness && <Chip kind="warn">{I.slot} 时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>}
             </div>
             <div className="top-actions">
               <button className={'mini ' + (showDetail ? 'on' : '')} onClick={() => setShowDetail(!showDetail)} title="口碑/粉丝/客诉 + 距下一星最短缺口">
-                详情{(s.complaintsBacklog || 0) > 0 ? ` · 客诉 ${s.complaintsBacklog}` : ''}
+                {I.detail} 详情{(s.complaintsBacklog || 0) > 0 ? ` · ${I.complaint}${s.complaintsBacklog}` : ''}
               </button>
               <button className={'mini ' + (serviceCount + rescueCount > 0 ? 'alert' : '')} onClick={() => setPanel(panel === 'inbox' ? null : 'inbox')}>
-                收件箱{serviceCount + rescueCount > 0 ? ` (${serviceCount + rescueCount})` : ''}
+                {I.inbox} 收件箱{serviceCount + rescueCount > 0 ? ` ${serviceCount + rescueCount}` : ''}
               </button>
               <button className="mini" onClick={() => setPanel(panel === 'brief' ? null : 'brief')} title="接单 / 排期 / 员工预警 / 广告">
-                {showBriefing && panel === 'brief' ? '回到舞台' : '今日安排'}
+                {showBriefing && panel === 'brief' ? '回到舞台' : `${I.brief} 今日安排`}
               </button>
             </div>
           </>
@@ -208,10 +209,10 @@ function GradeGap({ s }) {
   return (
     <div className="grade-gap">
       <div className="gg-slow">
-        <Chip>口碑 {s.reputation.toFixed(1)}</Chip>
-        <Chip>粉丝 {fmt(s.fans)}</Chip>
-        {(s.complaintsBacklog || 0) > 0 && <Chip kind="warn">客诉 {s.complaintsBacklog}</Chip>}
-        {gi && !gi.allOk && gi.bottleneck && <Chip kind="boss">卡点：{gi.bottleneck.label}</Chip>}
+        <Chip>{I.rep} 口碑 {s.reputation.toFixed(1)}</Chip>
+        <Chip>{I.fans} 粉丝 {fmt(s.fans)}</Chip>
+        {(s.complaintsBacklog || 0) > 0 && <Chip kind="warn">{I.complaint} 客诉 {s.complaintsBacklog}</Chip>}
+        {gi && !gi.allOk && gi.bottleneck && <Chip kind="boss">{I.lock} 卡点：{gi.bottleneck.label}</Chip>}
       </div>
       {gi && !gi.allOk && (
         <div className="gg-dims">

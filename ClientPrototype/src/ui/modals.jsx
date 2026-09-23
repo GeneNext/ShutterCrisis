@@ -5,6 +5,7 @@ import {
   PRICING, WALKIN_POLICY, POSTS, strategyUnlock, setStaffCount,
 } from '../game/engine.js'
 import { Bar, Chip, Section, Btn } from './components.jsx'
+import { I, LOC_I, ORDER_I, CROWD_I, PRICE_I, WALKIN_I, BOSS_I, POST_I, TIER_I } from './icons.js'
 
 // ---------------- 轻结算：一条提示 + 继续（弱化复盘，详情在报表页） ----------------
 export function SettleLite({ s, run, hint, onReview }) {
@@ -15,16 +16,16 @@ export function SettleLite({ s, run, hint, onReview }) {
     <div className="overlay lite" >
       <div className="settle-lite">
         <div className="sl-line">
-          <b>第 {r.day} 天结束</b>
-          <span className={r.net >= 0 ? 'good' : 'bad'}>净流 {r.net >= 0 ? '+' : ''}{fmt(r.net)}</span>
-          <span>余额 ¥{fmt(r.balance)}</span>
+          <b>{I.settle} 第 {r.day} 天结束</b>
+          <span className={r.net >= 0 ? 'good' : 'bad'}>{I.cash} 净流 {r.net >= 0 ? '+' : ''}{fmt(r.net)}</span>
+          <span>余额 {I.cash}¥{fmt(r.balance)}</span>
           {r.loss > 0 && <span className="bad">流失 ¥{fmt(r.loss)}</span>}
-          <span className="sub">{r.served} 单 · 留存 {r.retained} · 传播 {r.spread}</span>
+          <span className="sub">📋 {r.served} 单 · 留存 {r.retained} · 传播 {r.spread}</span>
         </div>
         <div className="sl-hint">{hint}</div>
         <div className="row end">
-          {reviewDay && <Btn onClick={onReview}>今晚是锐评日 · 去投稿</Btn>}
-          <Btn kind="primary" onClick={() => run('nextDay')}>继续 · 第 {r.day + 1} 天</Btn>
+          {reviewDay && <Btn onClick={onReview}>🌙 锐评日 · 去投稿</Btn>}
+          <Btn kind="primary" onClick={() => run('nextDay')}>{I.next} 继续 · 第 {r.day + 1} 天</Btn>
         </div>
       </div>
     </div>
@@ -50,7 +51,7 @@ function ReviewInner({ s, run, onClose }) {
   if (done || s.works.length === 0) {
     return (
       <div>
-        <h2>锐评时刻（每周三）</h2>
+        <h2>{TIER_I.none} 锐评时刻（每周三）</h2>
         <div className="sub">{s.works.length === 0 ? '相册还没有作品，先交付几张照片。' : '本周已投稿，下周三再来。'}</div>
         <div className="row end"><Btn onClick={onClose}>关闭</Btn></div>
       </div>
@@ -60,7 +61,7 @@ function ReviewInner({ s, run, onClose }) {
   const crowdPref = [40, 50, 57, 65, 75][w ? w.crowdIdx : 1] || 50
   return (
     <div>
-      <h2>锐评时刻（每周三：选片 + 精修直接决定档位）</h2>
+      <h2>🎬 锐评时刻（选片 + 精修定档）</h2>
       <div className="row wrap" style={{ margin: '8px 0' }}>
         <select value={workId} onChange={(e) => setWorkId(parseInt(e.target.value, 10))}>
           {s.works.slice(-12).reverse().map((wk) => (
@@ -81,7 +82,7 @@ function ReviewInner({ s, run, onClose }) {
         </div>
       ) : (
         <div className="review-result">
-          <div className="big">{TIER_NAME(result.tier)}</div>
+          <div className="big">{TIER_I[result.tier] || ''} {TIER_NAME(result.tier)}</div>
           <div className="sub">锐评评分 {(result.score * 100) | 0}</div>
           <div className="row end"><Btn kind="primary" onClick={() => { setResult(null); run(); onClose() }}>收下结果</Btn></div>
         </div>
@@ -96,8 +97,8 @@ export function MapModal({ world, onEnter, onClose }) {
   return (
     <div className="overlay map" onClick={onClose}>
       <div className="map-board" onClick={(e) => e.stopPropagation()}>
-        <h2>快门县地图</h2>
-        <div className="sub">每个地点有自己的三星任务；拿到 1 星解锁下一地点。品牌（粉丝/技能）全县共享。</div>
+        <h2>{I.map} 快门县地图</h2>
+        <div className="sub">每地点三星任务；1 星解锁下一地点。品牌（粉丝/技能）全县共享。</div>
         <div className="map-canvas">
           {MAP.map((loc, i) => {
             const unlocked = locUnlocked(world, loc.key)
@@ -107,11 +108,11 @@ export function MapModal({ world, onEnter, onClose }) {
             return (
               <div key={loc.key} className={'map-node ' + (unlocked ? '' : 'locked') + (isCur ? ' cur' : '')}
                 style={{ left: loc.x + '%', top: loc.y + '%' }}>
-                <div className="map-stars">{unlocked ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : '锁'}</div>
-                <div className="map-name">{loc.name}</div>
+                <div className="map-stars">{unlocked ? '★'.repeat(stars) + '☆'.repeat(3 - stars) : '🔒'}</div>
+                <div className="map-name">{LOC_I[loc.key] || I.map} {loc.name}</div>
                 <div className="map-desc">{loc.desc}</div>
                 {isCur
-                  ? <Chip kind="ok">当前门店</Chip>
+                  ? <Chip kind="ok">{I.ok} 当前门店</Chip>
                   : unlocked
                     ? <Btn onClick={() => onEnter(loc.key)}>进入经营</Btn>
                     : <span className="sub">需「{MAP.find((m) => m.key === loc.unlock.prev).name}」1 星</span>}
@@ -135,12 +136,12 @@ export function ComplaintModal({ s, run, onGoStaff }) {
   return (
     <div className="overlay">
       <div className="modal small">
-        <h2>客诉积压 · {backlog} 起</h2>
-        <p style={{ margin: '8px 0' }}>客服搞不定了，投诉已经堆到老板面前。</p>
-        <div className="sub">根治办法：招募更多客服，或升级接待区（前台每 2 级可分担 1 名客服职能）。</div>
+        <h2>{I.complaint} 客诉积压 · {backlog} 起</h2>
+        <p style={{ margin: '8px 0' }}>投诉堆到老板面前了。</p>
+        <div className="sub">根治：多招客服，或升接待区（前台每 2 级分担 1 名客服）。</div>
         <div className="row end" style={{ marginTop: 12 }}>
-          <Btn onClick={() => { act(s, 'dismissComplaint'); run() }}>亲自出面平息（¥200，积压减半）</Btn>
-          <Btn kind="primary" onClick={onGoStaff}>去招募客服</Btn>
+          <Btn onClick={() => { act(s, 'dismissComplaint'); run() }}>🙏 亲自平息（¥200，减半）</Btn>
+          <Btn kind="primary" onClick={onGoStaff}>{I.hire} 去招募客服</Btn>
         </div>
       </div>
     </div>
@@ -155,15 +156,15 @@ export function QuarrelModal({ s, run, onClose }) {
   return (
     <div className="overlay">
       <div className="modal">
-        <h2>争执现场 · {QUARREL_NAME(q.ct)}</h2>
+        <h2>{I.angry} 争执现场 · {QUARREL_NAME(q.ct)}</h2>
         <div className="power">
-          <div className="power-row"><span>你</span><Bar v={q.my} color="blue" label={q.my} /></div>
-          <div className="power-row"><span>{QUARREL_NAME(q.ct)}客人</span><Bar v={q.foe} color="red" label={q.foe} /></div>
+          <div className="power-row"><span>🧑‍💼 你</span><Bar v={q.my} color="blue" label={q.my} /></div>
+          <div className="power-row"><span>{I.angry} {QUARREL_NAME(q.ct)}客人</span><Bar v={q.foe} color="red" label={q.foe} /></div>
         </div>
         <div className="qlog">{q.log.map((l, i) => <div key={i}>{l}</div>)}</div>
         {!result ? (
           <div>
-            <div className="sub" style={{ marginBottom: 6 }}>选择你的沟通方式（每回合 3 选 1，说错话会丢气势）：</div>
+            <div className="sub" style={{ marginBottom: 6 }}>选沟通方式（每回合 3 选 1，说错话掉气势）：</div>
             <div className="talk-grid">
               {act(s, 'quarrelOptions').map((opt) => (
                 <button key={opt.key} className={'talk-card' + (opt.strong ? ' strong' : '')}
@@ -193,7 +194,7 @@ export function ManualShootModal({ order, s, run, onClose }) {
   return (
     <div className="overlay">
       <div className="modal">
-        <h2>亲自拍摄 · {order.name}（可选：跳过按员工技能自动结算）</h2>
+        <h2>{I.boss} 亲自拍摄 · {order.name}（可选）</h2>
         <div className="sub">三轴越接近 100 越好；老板精力 -15。</div>
         <Bar v={comp} color="blue" label={`构图 ${comp}`} />
         <input type="range" min="0" max="100" value={comp} onChange={(e) => setComp(+e.target.value)} style={{ width: '100%' }} />
@@ -215,16 +216,16 @@ export function GradeCeremony({ c, onClose }) {
   return (
     <div className="overlay ceremony">
       <div className="ceremony-card">
-        <div className="ceremony-sub">{c.type === 'task' ? '任务达成' : '升级评审通过'}</div>
+        <div className="ceremony-sub">{c.type === 'task' ? '🏁 任务达成' : '🎉 升级评审通过'}</div>
         <div className="ceremony-plaque">{c.type === 'task' ? '★ 任务达成' : c.plaque}</div>
         {c.crowdName && <div className="ceremony-crowd">新主力客群：{c.crowdName}</div>}
         <div className="ceremony-list">
           {(c.unlocks || [c.text]).map((u, i) => (
-            <div key={i} className="unlock-item" style={{ animationDelay: i * 0.25 + 's' }}>{u}</div>
+            <div key={i} className="unlock-item" style={{ animationDelay: i * 0.25 + 's' }}>{I.lock} {u}</div>
           ))}
         </div>
-        {c.reward && <div className="ceremony-reward">奖励：{c.reward}</div>}
-        <Btn kind="primary" big onClick={onClose}>继续经营</Btn>
+        {c.reward && <div className="ceremony-reward">{I.cash} 奖励：{c.reward}</div>}
+        <Btn kind="primary" big onClick={onClose}>{I.next} 继续经营</Btn>
       </div>
     </div>
   )
@@ -238,13 +239,13 @@ export function Inbox({ s, run, onClose }) {
   return (
     <div className="overlay" onClick={onClose}>
       <div className="modal inbox" onClick={(e) => e.stopPropagation()}>
-        <h2>事件收件箱（客服事件必须处理；其余可攒）</h2>
+        <h2>{I.inbox} 事件收件箱（客服事件必处理；其余可攒）</h2>
         {service.length === 0 && !rescue && quarrels.length === 0 && <div className="sub">收件箱是空的。</div>}
         {service.map((m) => {
           const tpl = SERVICE_EVENTS.find((t) => t.key === m.eventKey)
           return (
             <div key={m.id} className="inbox-card">
-              <div className="row"><Chip kind="warn">立即处理</Chip><b>{m.name}</b></div>
+              <div className="row"><Chip kind="warn">{I.warn} 立即处理</Chip><b>{m.name}</b></div>
               <div className="sub">成因：{m.cause}</div>
               <div className="row wrap">
                 {tpl.opts.map((o) => (
@@ -259,42 +260,42 @@ export function Inbox({ s, run, onClose }) {
         })}
         {quarrels.map((m) => (
           <div key={m.id} className="inbox-card">
-            <div className="row"><Chip kind="warn">立即处理</Chip><b>{m.name}</b></div>
-            <Btn onClick={() => { act(s, 'startQuarrel', m.ref); run() }}>现场论战（进入吵架）</Btn>
+            <div className="row"><Chip kind="warn">{I.warn} 立即处理</Chip><b>{m.name}</b></div>
+            <Btn onClick={() => { act(s, 'startQuarrel', m.ref); run() }}>{I.angry} 现场论战</Btn>
             <Btn kind="ghost" onClick={() => { act(s, 'dismissInbox', m.id); run() }}>忍了</Btn>
           </div>
         ))}
         {s.inbox.filter((m) => m.kind === 'rushoffer').map((m) => (
           <div key={m.id} className="inbox-card">
-            <div className="row"><Chip kind="ok">机会 · 当日有效</Chip><b>{m.name}</b></div>
+            <div className="row"><Chip kind="ok">{I.ok} 机会 · 当日有效</Chip><b>{m.name}</b></div>
             <div className="sub">加急费 +50%，下一时段到店插队处理。</div>
             <div className="row wrap">
-              <Btn kind="primary" onClick={() => { act(s, 'acceptRush', m.id); run() }}>接单（+50%）</Btn>
+              <Btn kind="primary" onClick={() => { act(s, 'acceptRush', m.id); run() }}>{I.fast} 接单（+50%）</Btn>
               <Btn kind="ghost" onClick={() => { act(s, 'declineRush', m.id); run() }}>婉拒（口碑 -0.02）</Btn>
             </div>
           </div>
         ))}
         {s.inbox.filter((m) => m.kind === 'complaint').map((m) => (
           <div key={m.id} className="inbox-card">
-            <div className="row"><Chip kind={m.level === 'must' ? 'danger' : 'warn'}>客诉积压 {m.backlog} 起</Chip><b>建议扩充客服</b></div>
-            <div className="sub">客服在岗数与接待区等级决定每日消化量；积压会拖垮口碑。</div>
+            <div className="row"><Chip kind={m.level === 'must' ? 'danger' : 'warn'}>{I.complaint} 客诉积压 {m.backlog} 起</Chip><b>建议扩充客服</b></div>
+            <div className="sub">客服在岗数与接待区等级决定每日消化量；积压拖垮口碑。</div>
             <div className="row wrap">
-              <Btn onClick={() => { act(s, 'dismissComplaint'); run() }}>亲自平息（¥200，减半）</Btn>
+              <Btn onClick={() => { act(s, 'dismissComplaint'); run() }}>🙏 亲自平息（¥200，减半）</Btn>
             </div>
           </div>
         ))}
         {rescue && (
           <div className="inbox-card rescue">
-            <div className="row"><Chip kind="danger">必须处理 · 破产防线</Chip><b>{rescue.name}</b></div>
-            <div className="sub">现金流进入危险态。接一单救命大单回血（有代价：全店通宵 + 口碑小扣，每 30 天一次）。</div>
+            <div className="row"><Chip kind="danger">{I.danger} 必须处理 · 破产防线</Chip><b>{rescue.name}</b></div>
+            <div className="sub">现金流危险态。接救命大单回血（代价：通宵 + 口碑小扣，30 天一次）。</div>
             <div className="row wrap">
-              {!s.rescue.entitled && <Btn onClick={() => { act(s, 'watchAd'); run() }}>看广告解锁资格（免费）</Btn>}
-              {!s.rescue.entitled && <Btn onClick={() => { act(s, 'payUnlock'); run() }}>付费解锁（单机原型与广告等效）</Btn>}
+              {!s.rescue.entitled && <Btn onClick={() => { act(s, 'watchAd'); run() }}>📺 看广告解锁（免费）</Btn>}
+              {!s.rescue.entitled && <Btn onClick={() => { act(s, 'payUnlock'); run() }}>💳 付费解锁</Btn>}
             </div>
             {s.rescue.entitled && RESCUE_DEALS.map((d) => (
               <div key={d.key} className="row">
                 <Btn kind="primary" onClick={() => { act(s, 'takeRescueDeal', d.key); run(); onClose() }}>
-                  接「{d.name}」（约 ×{d.mult} 客单 · 老板精力 -{d.energyCost} · 口碑 -{d.repCost}）
+                  {I.start} 接「{d.name}」（约 ×{d.mult} 客单 · 精力 -{d.energyCost} · 口碑 -{d.repCost}）
                 </Btn>
               </div>
             ))}
@@ -312,13 +313,13 @@ export function Ending({ s, onRestart }) {
   return (
     <div className="overlay ceremony">
       <div className="ceremony-card">
-        <div className="ceremony-sub">{e.type === 'bankrupt' ? '破产结算' : '收店退休'}</div>
+        <div className="ceremony-sub">{e.type === 'bankrupt' ? '💸 破产结算' : '🏁 收店退休'}</div>
         <div className="ceremony-plaque">{e.type === 'bankrupt' ? '快门落下' : '传奇影楼'}</div>
         <div className="ceremony-crowd">{e.text}</div>
         <div className="ceremony-list">
-          <div className="unlock-item">经营 {s.round} 天 · 交付 {s.delivered} 单 · 粉丝 {fmt(s.fans)} · 口碑 {s.reputation.toFixed(1)} 星</div>
+          <div className="unlock-item">经营 {s.round} 天 · 交付 {s.delivered} 单 · {I.fans}粉丝 {fmt(s.fans)} · {I.rep}口碑 {s.reputation.toFixed(1)} 星</div>
         </div>
-        <Btn kind="primary" big onClick={onRestart}>回到地图（新档）</Btn>
+        <Btn kind="primary" big onClick={onRestart}>{I.map} 回到地图（新档）</Btn>
       </div>
     </div>
   )
@@ -333,50 +334,50 @@ export function BusinessStartModal({ s, run, onStart }) {
     <div className="overlay">
       <div className="modal wide start-config">
         <h2>今天怎么开张？</h2>
-        <p className="sub">经营策略一旦确认即生效；班底人数决定当天各岗位并发（动线提速）。高级项要靠培训投入解锁。</p>
+        <p className="sub">策略确认即生效；班底人数决定当天各岗位并发。高级项靠培训投入解锁。</p>
 
-        <Section title="定价（影响客流、毛利与口碑涨跌）">
+        <Section title={`${PRICE_I[PRICING[0].key] || I.cash} 定价（影响客流 / 毛利 / 口碑）`}>
           <div className="row wrap">
             {PRICING.map((p) => {
               const g = ul.price(p.key)
               return (
                 <Btn key={p.key} kind={s.priceTier === p.key ? 'on' : ''} disabled={!g.ok}
                   onClick={() => { act(s, 'setPrice', p.key); run() }} title={g.ok ? p.name : `需累计培训投入 ¥${g.need}`}>
-                  {p.name} ×{p.mul}
-                  {!g.ok && <span className="lock">🔒 培训 ¥{g.need}</span>}
+                  {PRICE_I[p.key] || ''} {p.name} ×{p.mul}
+                  {!g.ok && <span className="lock">{I.lock} 培训 ¥{g.need}</span>}
                 </Btn>
               )
             })}
           </div>
-          <div className="sub">已累计投入培训 ¥{fmt(ul.inv)}</div>
+          <div className="sub">{I.course} 已投入培训 {I.cash}¥{fmt(ul.inv)}</div>
         </Section>
 
-        <Section title="walk-in 随机客分流（动线压力与收益倾向）">
+        <Section title={`${WALKIN_I[WALKIN_POLICY[1].key] || I.slot} walk-in 分流（动线压力与收益倾向）`}>
           <div className="row wrap">
             {WALKIN_POLICY.map((w) => {
               const g = ul.walkin(w.key)
               return (
                 <Btn key={w.key} kind={s.walkinPolicy === w.key ? 'on' : ''} disabled={!g.ok} title={w.desc + (g.ok ? '' : `（需 ¥${g.need}）`)}
                   onClick={() => { act(s, 'setWalkInPolicy', w.key); run() }}>
-                  {w.name}
-                  {!g.ok && <span className="lock">🔒 培训 ¥{g.need}</span>}
+                  {WALKIN_I[w.key] || ''} {w.name}
+                  {!g.ok && <span className="lock">{I.lock} 培训 ¥{g.need}</span>}
                 </Btn>
               )
             })}
           </div>
         </Section>
 
-        <Section title="老板值班风格">
+        <Section title={`${BOSS_I.hands_on} 老板值班风格`}>
           <div className="row wrap">
             <Btn kind={s.boss.style === 'hands_on' ? 'on' : ''} onClick={() => { act(s, 'setBossStyle', 'hands_on'); run() }}>
-              亲力亲为（可顶岗/亲自拍）<span className="sub">开局可选</span>
+              {BOSS_I.hands_on} 亲力亲为<span className="sub">开局可选</span>
             </Btn>
             {(() => {
               const g = ul.boss('delegator')
               return (
                 <Btn kind={s.boss.style === 'delegator' ? 'on' : ''} disabled={!g.ok}
                   onClick={() => { act(s, 'setBossStyle', 'delegator'); run() }}>
-                  甩手掌柜{!g.ok && <span className="lock">🔒 培训 ¥{g.need}</span>}
+                  {BOSS_I.delegator} 甩手掌柜{!g.ok && <span className="lock">{I.lock} 培训 ¥{g.need}</span>}
                 </Btn>
               )
             })()}
@@ -384,14 +385,14 @@ export function BusinessStartModal({ s, run, onStart }) {
           <span className="sub">精力 {s.boss.energy}/100</span>
         </Section>
 
-        <Section title="班底人数（默认 1 摄影师 + 1 化妆师）">
+        <Section title={`${POST_I.photographer} 班底人数（默认 1 摄影师 + 1 化妆师）`}>
           <div className="lineup">
             {POSTS.map((p) => {
               const n = countOf(p.post)
-              const defaultLabel = p.key === 'photographer' ? '（开局默认）' : p.key === 'makeup' ? '（开局默认）' : ''
+              const defaultLabel = p.key === 'photographer' || p.key === 'makeup' ? '（默认）' : ''
               return (
                 <div key={p.key} className={'lineup-row ' + (n > 0 ? 'has' : '')}>
-                  <b>{p.name}</b>{defaultLabel && <span className="sub">{defaultLabel}</span>}
+                  <b>{POST_I[p.post] || ''} {p.name}</b>{defaultLabel && <span className="sub">{defaultLabel}</span>}
                   <div className="stepper">
                     <button className="mini step" onClick={() => { setStaffCount(s, p.key, Math.max(0, n - 1)); run() }}>−</button>
                     <span className="step-n">{n}</span>
@@ -401,11 +402,11 @@ export function BusinessStartModal({ s, run, onStart }) {
               )
             })}
           </div>
-          <div className="sub">人越多当天工资越高；缺岗岗位会排队卡死动线。</div>
+          <div className="sub">人越多工资越高；缺岗会让动线排队卡死。</div>
         </Section>
 
         <div className="row end start-config-go">
-          <Btn kind="primary" big onClick={onStart}>确认 · 开门营业</Btn>
+          <Btn kind="primary" big onClick={onStart}>{I.start} 确认 · 开门营业</Btn>
         </div>
       </div>
     </div>

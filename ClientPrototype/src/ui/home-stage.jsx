@@ -6,6 +6,7 @@ import {
   expandPreview,
 } from '../game/engine.js'
 import { Chip, Section, Btn } from './components.jsx'
+import { I, ZONE_I, POST_I } from './icons.js'
 import { TasksHUD } from './panels.jsx'
 
 // 舞台布局（百分比）：房间即工位容器的可视化
@@ -48,20 +49,20 @@ export function Home({ s, run, world, onManualShoot, speed, setSpeed, onSkip }) 
 // ---------- 员工列表（舞台左栏） ----------
 function StaffRail({ s }) {
   return (
-    <Section title="员工">
+    <Section title="👥 员工">
       {s.staff.length === 0 && <div className="sub">店里没有人。</div>}
       <div className="rail-staff">
         {s.staff.map((e) => (
           <div key={e.id} className={'rail-e ' + (e.dayOff ? 'off' : '')}>
             <div className="rail-line">
-              <b>{e.name}</b>
+              <b>{POST_I[e.post] || ''} {e.name}</b>
               <Chip kind="stage">{POST_NAMES[e.post] || e.post}</Chip>
               <span className="rail-lv">Lv{e.skill}</span>
             </div>
             <div className="rail-meta">
               {e.resting || e.energy < 30
-                ? <Chip kind="warn">休息中 {e.energy}</Chip>
-                : e.energy < 60 ? <Chip kind="warn">精力 {e.energy}</Chip> : <span className="sub">精力 {e.energy}</span>}
+                ? <Chip kind="warn">{I.rest} 休息中 {e.energy}</Chip>
+                : e.energy < 60 ? <Chip kind="warn">{I.energy} 精力 {e.energy}</Chip> : <span className="sub">{I.energy} 精力 {e.energy}</span>}
             </div>
           </div>
         ))}
@@ -79,12 +80,12 @@ function StageBar({ business, speed, setSpeed, onSkip, s }) {
           <span className="stage-bar-speed">
             {['pause', 'slow', '1x', '2x', '4x'].map((sp) => (
               <button key={sp} className={'mini ' + (speed === sp ? 'on' : '')} onClick={() => setSpeed(sp)}>
-                {sp === 'pause' ? '暂停' : sp === 'slow' ? '慢' : sp}
+                {sp === 'pause' ? `${I.pause} 暂停` : sp === 'slow' ? `${I.slow} 慢` : sp}
               </button>
             ))}
           </span>
-          <span className="stage-bar-slot"><Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip></span>
-          <span className="stage-bar-skip"><button className="mini" onClick={onSkip}>跳到结算</button></span>
+          <span className="stage-bar-slot"><Chip kind="warn">{I.slot} 时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip></span>
+          <span className="stage-bar-skip"><button className="mini" onClick={onSkip}>{I.skip} 跳到结算</button></span>
         </>
       ) : (
         <span className="sub">当前为非营业时段——去晨会「开始营业」。</span>
@@ -118,6 +119,7 @@ function StagePlan({ s, run, business, onManualShoot }) {
     return {
       id: e.id, x: room.x + room.w / 2 + ((i % 2) - 0.5) * 10,
       y: room.y + room.h / 2 - 9, name: e.name, lv: e.skill, rest: resting,
+      icon: resting ? I.rest : (POST_I[e.post] || '🧑'),
     }
   })
   const f = FACILITIES.find((x) => x.key === sel)
@@ -140,10 +142,10 @@ function StagePlan({ s, run, business, onManualShoot }) {
     if (pv && !pv.unavailable && s.cash >= pv.cost) expandReady.push(pv)
   }
   return (
-    <Section title="店内舞台（客人在房间间流动 · 点房间就地升级 · 点「亲自拍」上手微操）"
+    <Section title="🎬 店内舞台"
       right={business
-        ? <Chip kind="warn">时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>
-        : (expandReady.length ? <Chip kind="boss">有扩店可开工（忽闪处点开）</Chip> : <span className="sub">当前为非营业时段</span>)}>
+        ? <Chip kind="warn">{I.slot} 时段 {Math.min(s.slot + 1, s.slotsTotal)}/{s.slotsTotal}</Chip>
+        : (expandReady.length ? <Chip kind="boss">{I.build} 有扩店可开工（忽闪处点开）</Chip> : <span className="sub">当前为非营业时段</span>)}>
       <div className="stage">
         {Object.entries(STAGE).map(([key, r]) => {
           const servingN = business && frame && frame.stations
@@ -159,9 +161,9 @@ function StagePlan({ s, run, business, onManualShoot }) {
           return (
             <div key={key} className={'stage-room ' + (sel === key ? 'sel' : '')}
               style={{ left: r.x + '%', top: r.y + '%', width: r.w + '%', height: r.h + '%' }}>
-              <div className="sr-head" onClick={() => setSel(key)}>{r.name} <span>{built}间·Lv{s.fac[key]}</span></div>
+              <div className="sr-head" onClick={() => setSel(key)}>{ZONE_I[key] || ''} {r.name} <span>{built}间·Lv{s.fac[key]}</span></div>
               {s.fac[key] < roomCap && upCost > 0 && (
-                <div className="sr-up" onClick={() => setSel(key)} title="点房间就地升级">升 Lv{s.fac[key] + 1} · ¥{fmt(upCost)}</div>
+                <div className="sr-up" onClick={() => setSel(key)} title="点房间就地升级">{I.upgrade} 升 Lv{s.fac[key] + 1} · ¥{fmt(upCost)}</div>
               )}
               <div className="sr-rooms">
                 {Array.from({ length: built }).map((_, i) => (
@@ -187,7 +189,7 @@ function StagePlan({ s, run, business, onManualShoot }) {
             <button key={pv.dir} className={'expand-blink ' + (expandDir === pv.dir ? 'on' : '')}
               style={{ left: a.x + '%', top: a.y + '%', transform: 'translate(-50%,-50%)' }}
               onClick={() => setExpandDir(expandDir === pv.dir ? null : pv.dir)} title={pv.name}>
-              扩 {pv.dir === 'right' ? '右→' : pv.dir === 'back' ? '↑后' : '↑二楼'} · ¥{fmt(pv.cost)}
+              {I.build} 扩 {pv.dir === 'right' ? '右→' : pv.dir === 'back' ? '↑后' : '↑二楼'} · ¥{fmt(pv.cost)}
             </button>
           )
         })}
@@ -209,7 +211,7 @@ function StagePlan({ s, run, business, onManualShoot }) {
           <div key={d.id} className={'staffdot ' + (d.rest ? 'resting' : '')}
             style={{ left: `calc(${d.x}% - 12px)`, top: `calc(${d.y}% - 10px)` }}
             title={`${d.name}（Lv ${d.lv}）${d.rest ? ' · 休息中' : ''}`}>
-            Lv{d.lv}
+            {d.icon}
           </div>
         ))}
       </div>
@@ -236,7 +238,7 @@ function StagePlan({ s, run, business, onManualShoot }) {
           )}
           {rnv && <Chip kind="warn">施工中：剩 {rnv.daysLeft} 天</Chip>}
           {f.cat === 'equip' && lv > 1 && (
-            <button className="mini" onClick={() => { act(s, 'sellEquipment', sel); run() }}>变卖当前级（回收 40%）</button>
+            <button className="mini" onClick={() => { act(s, 'sellEquipment', sel); run() }}>{I.retain} 变卖当前级（回收 40%）</button>
           )}
         </div>
         <div className="sub">{f.desc}</div>
